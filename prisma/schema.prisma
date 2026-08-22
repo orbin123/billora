@@ -1,0 +1,71 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id       Int @id @default(autoincrement())
+  name     String
+  password String
+  role     Role
+
+  @@map("users")
+}
+
+enum Role {
+  admin
+  cashier
+}
+
+model Category {
+  id          Int @id @default(autoincrement())
+  name        String
+  description String?
+  status      Boolean @default(true)
+  foods       Food[]
+
+  @@map("categories")
+}
+
+model Food {
+  id         Int      @id @default(autoincrement())
+  categoryId Int      @map("category_id")
+  category   Category @relation(fields: [categoryId], references: [id])
+  name       String
+  price      Decimal
+  image      String?
+  status     Boolean  @default(true)
+  billItems  BillItem[]
+
+  @@map("foods")
+}
+
+model Bill {
+  id            Int        @id @default(autoincrement())
+  billNumber    String     @unique @map("bill_number")
+  subtotal      Decimal
+  grandTotal    Decimal    @map("grand_total")
+  paymentMethod String     @map("payment_method")
+  paymentStatus String     @map("payment_status")
+  createdAt     DateTime   @default(now()) @map("created_at")
+  items         BillItem[]
+
+  @@map("bills")
+}
+
+model BillItem {
+  id       Int @id @default(autoincrement())
+  billId   Int @map("bill_id")
+  bill     Bill   @relation(fields: [billId], references: [id])
+  foodId   Int @map("food_id")
+  food     Food   @relation(fields: [foodId], references: [id])
+  foodName String @map("food_name")
+  price    Decimal
+  quantity Int
+  total    Decimal
+
+  @@map("bill_items")
+}
