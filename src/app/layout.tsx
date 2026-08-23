@@ -1,30 +1,34 @@
 import type { Metadata, Viewport } from "next";
-import type { ReactNode } from "react";
-
-import { AuthProvider } from "@/contexts/AuthContext";
-
+import { Inter, Manrope } from "next/font/google";
 import "./globals.css";
 
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+  display: "swap",
+});
+
+const manrope = Manrope({
+  subsets: ["latin"],
+  variable: "--font-manrope",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
-  title: {
-    default: "Billora POS",
-    template: "%s | Billora POS",
-  },
-  description: "A fast, responsive point-of-sale system for food businesses.",
+  title: "Billora — All Your Billing, One Place",
+  description: "Fast, dependable billing and inventory for restaurants and small shops.",
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#2f8f4e",
+  themeColor: "#087747",
 };
 
-export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body className="min-h-dvh">
-        <AuthProvider>{children}</AuthProvider>
-      </body>
+      <body className={`${inter.variable} ${manrope.variable}`}>{children}</body>
     </html>
   );
 }
