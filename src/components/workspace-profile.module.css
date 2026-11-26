@@ -1,0 +1,89 @@
+.root { position: relative; flex: 0 0 auto; }
+
+.trigger {
+  display: flex;
+  min-height: 48px;
+  max-width: 220px;
+  align-items: center;
+  gap: 9px;
+  padding: 5px 9px 5px 5px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #fff;
+  text-align: left;
+}
+
+.trigger:hover, .trigger[aria-expanded="true"] { border-color: #b1d2be; background: #f4f9f5; }
+
+.avatar {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  place-items: center;
+  border-radius: 9px;
+  background: var(--brand-light);
+  color: var(--brand-dark);
+  font-family: var(--font-manrope), sans-serif;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.identity { display: grid; min-width: 0; flex: 1; gap: 2px; }
+.identity strong, .identity small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.identity strong { color: var(--foreground); font-size: 13px; font-weight: 750; line-height: 1.2; }
+.identity small { color: var(--muted); font-size: 12px; line-height: 1.2; }
+.chevrons { width: 16px; height: 16px; flex: 0 0 16px; color: var(--brand-dark); }
+.chevrons { margin-left: 6px; }
+
+.picker {
+  position: absolute;
+  z-index: 2;
+  inset-block-start: calc(100% + 10px);
+  inset-inline-end: 0;
+  width: min(296px, calc(100vw - 32px));
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 14px 34px rgb(24 55 41 / 15%);
+}
+
+.pickerHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 8px;
+  padding: 9px 9px 11px;
+}
+
+.pickerHeader h2 { font-family: var(--font-manrope), sans-serif; font-size: 15px; font-weight: 800; }
+.pickerHeader span { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+.signOut {
+  display: flex;
+  width: 100%;
+  min-height: 44px;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  color: var(--brand-dark);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: left;
+}
+
+.signOut svg { width: 16px; height: 16px; }
+.signOut:hover { background: #edf7ef; }
+.signOut:focus-visible { outline-offset: -2px; }
+
+@media (max-width: 700px) {
+  .trigger { max-width: min(43vw, 176px); }
+}
+
+@media (max-width: 360px) {
+  .trigger { min-height: 44px; }
+  .trigger .identity { display: none; }
+  .chevrons { margin-left: 0; }
+}

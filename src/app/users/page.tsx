@@ -1,79 +1,165 @@
 "use client";
 
-import { useMemo, useState, type ComponentType, type FormEvent } from "react";
-import Link from "next/link";
-import { Bell, Camera, ChartNoAxesCombined, Check, ChevronDown, CircleUserRound, KeyRound, LayoutDashboard, Menu, PencilLine, Plus, ReceiptText, Search, Settings, Shapes, UsersRound, UtensilsCrossed, X } from "lucide-react";
-import { BrandMark } from "@/components/brand-mark";
+import { useCallback, useState, type FormEvent } from "react";
+import { Check, Copy, Menu, RefreshCw, PencilLine, Plus, Search, Trash2, UsersRound, X } from "lucide-react";
+import { useWorkspaceMutation } from "@/lib/use-workspace-mutation";
+import { useWorkspace } from "@/components/workspace-provider";
+import { WorkspaceDialog } from "@/components/workspace-dialog";
+import { WorkspaceNavigation, WorkspaceProfile } from "@/components/workspace-navigation";
+import { Button } from "@/components/ui/button";
+import type { Employee } from "@/data/workspace";
 import common from "../categories/categories.module.css";
 import styles from "./users.module.css";
 
-type Icon = ComponentType<{ className?: string; strokeWidth?: number }>;
-type User = { id: number; name: string; email: string; role: "Administrator" | "Cashier"; active: boolean; initials: string };
-type ProfileDraft = Pick<User, "name" | "email" | "role">;
-
-const navigation: Array<{ label: string; icon: Icon; href?: string }> = [
-  { label: "Dashboard", icon: LayoutDashboard, href: "/dashboard" },
-  { label: "Categories", icon: Shapes, href: "/categories" },
-  { label: "Foods", icon: UtensilsCrossed, href: "/foods" },
-  { label: "Billing", icon: ReceiptText, href: "/billing" },
-  { label: "Today's bills", icon: ReceiptText, href: "/bills" },
-  { label: "Reports", icon: ChartNoAxesCombined, href: "/reports" },
-  { label: "Users", icon: UsersRound, href: "/users" },
-  { label: "Settings", icon: Settings, href: "/settings" },
-];
-
-const initialUsers: User[] = [
-  { id: 1, name: "Ajmal", email: "ajmal@hotelmalabar.in", role: "Administrator", active: true, initials: "AJ" },
-  { id: 2, name: "Rahul", email: "rahul@hotelmalabar.in", role: "Cashier", active: true, initials: "RA" },
-  { id: 3, name: "Anu", email: "anu@hotelmalabar.in", role: "Cashier", active: true, initials: "AN" },
-  { id: 4, name: "Nisha", email: "nisha@hotelmalabar.in", role: "Cashier", active: false, initials: "NI" },
-];
-
 export default function UsersPage() {
+  const { employees, roles } = useWorkspace();
+  const mutation = useWorkspaceMutation();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [users, setUsers] = useState(initialUsers);
-  const [query, setQuery] = useState("");
+  const closeMenu = useCallback(() => setMenuOpen(false), []);
   const [filter, setFilter] = useState<"All" | "Active" | "Inactive">("All");
-  const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [profileOpen, setProfileOpen] = useState(false);
-  const [draft, setDraft] = useState<ProfileDraft>({ name: "", email: "", role: "Cashier" });
+  const [query, setQuery] = useState("");
+  const [draft, setDraft] = useState<Employee | null>(null);
+  const [deleting, setDeleting] = useState<Employee | null>(null);
+  const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const visibleUsers = useMemo(() => users.filter((user) => {
-    const matchesQuery = `${user.name} ${user.email} ${user.role}`.toLowerCase().includes(query.trim().toLowerCase());
-    return matchesQuery && (filter === "All" || (filter === "Active") === user.active);
-  }), [filter, query, users]);
 
-  const openProfile = (user?: User) => {
-    setEditingUser(user ?? null);
-    setDraft(user ? { name: user.name, email: user.email, role: user.role } : { name: "", email: "", role: "Cashier" });
+  const visibleEmployees = employees.filter((employee) =>
+    (filter === "All" || employee.active === (filter === "Active")) &&
+    `${employee.name} ${employee.email} ${roles.find(({ id }) => id === employee.roleId)?.name}`.toLowerCase().includes(query.trim().toLowerCase()),
+  );
+
+  function edit(employee?: Employee) {
+    setError("");
+    mutation.clearError();
     setNotice("");
-    setProfileOpen(true);
-  };
-  const saveProfile = (event: FormEvent<HTMLFormElement>) => {
+    setDraft(employee ?? { id: "", name: "", email: "", roleId: "employee", active: true });
+  }
+
+  function submitEmployee(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!draft.name.trim() || !draft.email.trim()) return;
-    const displayName = draft.name.trim();
-    const updated = { name: displayName, email: draft.email.trim(), role: draft.role, initials: displayName.split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase() };
-    if (editingUser) {
-      setUsers((current) => current.map((user) => user.id === editingUser.id ? { ...user, ...updated } : user));
-      setNotice(`${displayName}'s profile was updated`);
-    } else {
-      setUsers((current) => [...current, { id: Date.now(), ...updated, active: true }]);
-      setNotice(`${displayName} was added`);
+    if (!draft) return;
+    const name = draft.name.trim();
+    const email = draft.email.trim().toLowerCase();
+    if (!name || !email) {
+      setError("Enter a name and email for the employee.");
+      return;
     }
-    setProfileOpen(false);
-  };
-  const toggleUser = (id: number) => setUsers((current) => current.map((user) => user.id === id ? { ...user, active: !user.active } : user));
+    if (employees.some((employee) => employee.id !== draft.id && employee.email.toLowerCase() === email.toLowerCase())) {
+      setError("This email is already in use.");
+      return;
+    }
+    const employee = { id: draft.id, name, email, roleId: draft.roleId, active: draft.active };
+    setError("");
+    void mutation.run({ kind: "save-employee", employee }, () => {
+      setNotice(draft.id ? `${name} was updated.` : `Invitation created for ${name}. Copy the invite link and share it with them.`);
+      setDraft(null);
+    });
+  }
+
+  function updateStatus(employee: Employee) {
+    setNotice("");
+    void mutation.run({ kind: "save-employee", employee: { ...employee, active: !employee.active } }, () => {
+      setNotice(`${employee.name} was ${employee.active ? "deactivated" : "activated"}.`);
+    });
+  }
+
+  async function copyInvite(employee: Employee) {
+    const url = new URL("/signin", window.location.origin);
+    url.searchParams.set("invite", employee.inviteCode ?? "");
+    try {
+      await navigator.clipboard.writeText(url.href);
+      setNotice(`Invite link copied for ${employee.name}. It expires after seven days.`);
+    } catch {
+      setNotice(`Copy this invite link for ${employee.name}: ${url.href}`);
+    }
+  }
 
   return <div className={common.shell}>
-    <button className={`${common.scrim} ${menuOpen ? common.scrimVisible : ""}`} aria-label="Close navigation" onClick={() => setMenuOpen(false)} />
-    <aside className={`${common.sidebar} ${menuOpen ? common.sidebarOpen : ""}`}><div className={common.brandRow}><BrandMark className={common.brandMark} size="sidebar" /><div className={common.brandCopy}><strong>BILLORA</strong><span>All Your Billing, One Place.</span></div><button className={common.closeMenu} onClick={() => setMenuOpen(false)} aria-label="Close menu"><X /></button></div><nav className={common.nav} aria-label="Main navigation"><span className={common.navLabel}>Workspace</span>{navigation.map((item) => { const Icon = item.icon; return item.href ? <Link className={`${common.navItem} ${item.label === "Users" ? common.navItemActive : ""}`} key={item.label} href={item.href} aria-current={item.label === "Users" ? "page" : undefined} onClick={() => setMenuOpen(false)}><Icon aria-hidden="true" /><span>{item.label}</span></Link> : <button className={common.navItem} type="button" key={item.label}><Icon aria-hidden="true" /><span>{item.label}</span></button>; })}</nav><div className={common.sidebarFooter}><div className={common.storeStatus}><i /><span><strong>Hotel Malabar</strong><small>Counter is online</small></span></div></div></aside>
-    <main className={common.main}><header className={common.topbar}><div className={common.pageIntro}><button className={common.menuButton} onClick={() => setMenuOpen(true)} aria-label="Open navigation"><Menu /></button><div><p>Workspace access</p><h1>Users</h1></div></div><div className={common.profileArea}><span className={common.demoBadge}>Demo data</span><button className={common.iconButton} aria-label="Notifications"><Bell /></button><button className={common.profileButton} aria-label="Open profile menu"><span className={common.avatar}><CircleUserRound /></span><span className={common.profileCopy}><strong>Ajmal</strong><small>Administrator</small></span><ChevronDown /></button></div></header>
-      <div className={common.content}><section className={common.hero}><div><p className={common.eyebrow}>Team management</p><h2>Give your team the right access</h2><p className={common.heroCopy}>Add the people who work at your counter and keep their workspace status clear.</p></div><button className={common.addButton} type="button" onClick={() => openProfile()}><Plus /> Add profile</button></section>
+    <WorkspaceNavigation styles={common} current="/users" open={menuOpen} onClose={closeMenu} />
+    <main className={common.main}>
+      <header className={common.topbar}>
+        <div className={common.pageIntro}>
+          <button className={common.menuButton} type="button" onClick={() => setMenuOpen(true)} aria-label="Open navigation"><Menu /></button>
+          <div><p>Team management</p><h1>Employees</h1></div>
+        </div>
+        <WorkspaceProfile styles={common} />
+      </header>
+      <div className={common.content}>
+        <section className={common.hero}>
+          <div><h2>Manage your team</h2><p className={common.heroCopy}>Invite employees, assign roles, and manage workspace access.</p></div>
+          <button className={common.addButton} type="button" onClick={() => edit()}><Plus /> Add employee</button>
+        </section>
+        {mutation.error && !draft && !deleting && <p role="alert" className="mb-3 text-sm text-rose-800">{mutation.error}</p>}
         {notice && <div className={common.notice} role="status"><Check />{notice}<button type="button" onClick={() => setNotice("")} aria-label="Dismiss message"><X /></button></div>}
-        <section className={`${common.categoryPanel} ${styles.usersPanel}`}><div className={common.panelHeader}><div><h2>Team members <span>{users.length}</span></h2><p>These are sample users for your demo workspace.</p></div><div className={common.tools}><label className={common.search}><Search /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search users" /></label><div className={common.filters} aria-label="Filter users">{(["All", "Active", "Inactive"] as const).map((value) => <button type="button" key={value} className={filter === value ? common.filterActive : ""} onClick={() => setFilter(value)}>{value}</button>)}</div></div></div>
-          <div className={styles.tableHeader}><span>User</span><span>Role</span><span>Status</span><span>Actions</span></div><div className={styles.userList}>{visibleUsers.length ? visibleUsers.map((user) => <article className={styles.userRow} key={user.id}><div className={styles.userName}><span className={styles.avatar}>{user.initials}</span><span><strong>{user.name}</strong><small>{user.email}</small></span></div><span className={`${styles.role} ${user.role === "Administrator" ? styles.adminRole : ""}`}>{user.role}</span><span className={`${common.status} ${styles.userStatus} ${user.active ? common.statusActive : common.statusInactive}`}><i />{user.active ? "Active" : "Inactive"}</span><div className={styles.actions}><button className={`${styles.toggle} ${user.active ? styles.toggleActive : ""}`} type="button" role="switch" aria-checked={user.active} aria-label={`Set ${user.name} ${user.active ? "inactive" : "active"}`} onClick={() => toggleUser(user.id)}><i /></button><button className={common.moreButton} type="button" aria-label={`Edit ${user.name}`} onClick={() => openProfile(user)}><PencilLine /></button></div></article>) : <div className={common.emptyState}><UsersRound /><strong>No users found</strong><span>Try a different search or add a team member.</span></div>}</div><footer className={common.panelFooter}>Showing {visibleUsers.length} of {users.length} team members</footer></section>
-      </div></main>
-    {profileOpen && <div className={styles.dialogBackdrop} role="presentation" onMouseDown={() => setProfileOpen(false)}><section className={styles.profileDialog} role="dialog" aria-modal="true" aria-labelledby="profile-title" onMouseDown={(event) => event.stopPropagation()}><header><div><p>{editingUser ? "Edit team member" : "New team member"}</p><h2 id="profile-title">{editingUser ? "Edit profile" : "Add profile"}</h2></div><button type="button" aria-label="Close profile dialog" onClick={() => setProfileOpen(false)}><X /></button></header><form onSubmit={saveProfile}><div className={styles.profileBody}><div className={styles.photoArea}><span className={styles.profileAvatar}>{draft.name ? draft.name.split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase() : "BP"}</span><button type="button" className={styles.changePhoto}><Camera /> Change photo</button></div><div className={styles.profileFields}><label>Name<input autoFocus value={draft.name} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} placeholder="e.g. Farah" /></label><label>Email address<input type="email" value={draft.email} onChange={(event) => setDraft((current) => ({ ...current, email: event.target.value }))} placeholder="farah@hotelmalabar.in" /></label><label>Role<select value={draft.role} onChange={(event) => setDraft((current) => ({ ...current, role: event.target.value as User["role"] }))}><option>Cashier</option><option>Administrator</option></select></label><button className={styles.passwordButton} type="button"><KeyRound /> Change password</button></div></div><footer><button className={common.cancelButton} type="button" onClick={() => setProfileOpen(false)}>Cancel</button><button className={common.saveButton} type="submit"><Check /> {editingUser ? "Save changes" : "Add profile"}</button></footer></form></section></div>}
+        <section className={`${common.categoryPanel} ${styles.usersPanel}`}>
+          <div className={common.panelHeader}>
+            <div><h2>Team members <span>{employees.length}</span></h2></div>
+            <div className={common.tools}>
+              <label className={common.search}><Search /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search employees" aria-label="Search employees" /></label>
+              <div className={common.filters} aria-label="Filter employees">
+                {(["All", "Active", "Inactive"] as const).map((value) => <button type="button" key={value} aria-pressed={value === filter} className={value === filter ? common.filterActive : ""} onClick={() => setFilter(value)}>{value}</button>)}
+              </div>
+            </div>
+          </div>
+          <div className={styles.tableHeader}><span>Employee</span><span>Role</span><span>Status</span><span>Actions</span></div>
+          <div className={styles.userList}>
+            {visibleEmployees.map((employee) => {
+              const initials = employee.name.split(/\s+/).slice(0, 2).map((word) => word[0]).join("").toUpperCase();
+              const roleName = roles.find((role) => role.id === employee.roleId)?.name;
+              const pendingInvite = Boolean(employee.inviteCode);
+              const expired = Boolean(employee.inviteExpiresAt && new Date(employee.inviteExpiresAt) <= new Date());
+              const status = !employee.active ? "Inactive" : expired ? "Invite expired" : pendingInvite ? "Invited" : "Active";
+              return <article className={styles.userRow} key={employee.id}>
+                <div className={styles.userName}><span className={styles.avatar}>{initials}</span><span><strong>{employee.name}</strong><small>{employee.email}</small></span></div>
+                <span className={`${styles.role} ${employee.roleId === "manager" ? styles.adminRole : ""}`} title={roleName}>{roleName}</span>
+                <span className={`${common.status} ${styles.userStatus} ${employee.active ? common.statusActive : common.statusInactive}`}><i />{status}</span>
+                {employee.roleId !== "manager" && <div className={styles.actions}>
+                  <button className={`${styles.toggle} ${employee.active ? styles.toggleActive : ""}`} type="button" role="switch" disabled={mutation.pending} aria-checked={employee.active} aria-label={`Active account for ${employee.name}`} onClick={() => updateStatus(employee)}><i /></button>
+                  {pendingInvite && employee.active && !expired && <button className={common.moreButton} type="button" aria-label={`Copy invite link for ${employee.name}`} title="Copy invite link" onClick={() => void copyInvite(employee)}><Copy /></button>}
+                  {pendingInvite && expired && <button className={common.moreButton} type="button" disabled={mutation.pending} aria-label={`Renew invite for ${employee.name}`} title="Renew invite" onClick={() => mutation.run({ kind: "renew-invite", id: employee.id }, () => setNotice("Invitation renewed. Copy the new invite link."))}><RefreshCw /></button>}
+                  <button className={common.moreButton} type="button" aria-label={`Edit ${employee.name}`} title="Edit details" onClick={() => edit(employee)}><PencilLine /></button>
+                  <button className={common.deleteButton} type="button" aria-label={`Delete ${employee.name}`} title="Delete employee" onClick={() => { mutation.clearError(); setDeleting(employee); }}><Trash2 /></button>
+                </div>}
+              </article>;
+            })}
+            {!visibleEmployees.length && <div className={common.emptyState}><UsersRound /><strong>No employees found</strong><span>Try a different name or status.</span></div>}
+          </div>
+        </section>
+      </div>
+    </main>
+    {draft && <WorkspaceDialog titleId="employee-form-title" onClose={() => setDraft(null)} className="w-lg rounded-2xl bg-white p-5 sm:p-6">
+      <form onSubmit={submitEmployee} className="grid gap-4">
+        <h2 id="employee-form-title" className="text-xl font-extrabold">{draft.id ? "Edit employee" : "Add employee"}</h2>
+        <label className="workspace-field">Employee name<input required maxLength={60} value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></label>
+        <label className="workspace-field">Email<input required type="email" maxLength={254} autoComplete="off" readOnly={Boolean(draft.id)} value={draft.email} onChange={(event) => setDraft({ ...draft, email: event.target.value })} /></label>
+        <label className="workspace-field">Role
+          <select value={draft.roleId} onChange={(event) => setDraft({ ...draft, roleId: event.target.value })}>
+            {roles.filter(({ id }) => id !== "manager").map((role) => <option key={role.id} value={role.id}>{role.name}</option>)}
+          </select>
+        </label>
+        <label className="workspace-field">Account status
+          <select value={String(draft.active)} onChange={(event) => setDraft({ ...draft, active: event.target.value === "true" })}>
+            <option value="true">Active</option><option value="false">Inactive</option>
+          </select>
+        </label>
+        {(error || mutation.error) && <p role="alert" className="text-sm text-rose-800">{error || mutation.error}</p>}
+        <footer className="flex flex-wrap justify-end gap-2">
+          <Button type="button" variant="outline" onClick={() => setDraft(null)}>Cancel</Button>
+          <Button type="submit" disabled={mutation.pending}>{draft.id ? "Save changes" : "Create invite link"}</Button>
+        </footer>
+      </form>
+    </WorkspaceDialog>}
+    {deleting && <WorkspaceDialog titleId="delete-employee-title" onClose={() => setDeleting(null)} className="w-md rounded-2xl bg-white p-5">
+      <h2 id="delete-employee-title" className="text-lg font-extrabold">Delete {deleting.name}?</h2>
+      <p className="my-3 text-sm">This removes the employee from your team. Completed bills keep their cashier details.</p>
+      {mutation.error && <p role="alert" className="text-sm text-rose-800">{mutation.error}</p>}
+      <div className="flex flex-wrap justify-end gap-2">
+        <Button variant="outline" onClick={() => setDeleting(null)}>Keep employee</Button>
+        <Button className="bg-rose-700 hover:bg-rose-800" disabled={mutation.pending} onClick={() => mutation.run({ kind: "remove-employee", id: deleting.id }, () => {
+          setNotice(`${deleting.name} was deleted.`);
+          setDeleting(null);
+        })}>Delete employee</Button>
+      </div>
+    </WorkspaceDialog>}
   </div>;
 }
