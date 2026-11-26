@@ -3,6 +3,12 @@ import { cn } from "@/lib/utils";
 
 type BrandMarkSize = "default" | "sidebar" | "header";
 
+const markSizes: Record<BrandMarkSize, string> = {
+  default: "size-16",
+  sidebar: "size-11",
+  header: "size-[34px]",
+};
+
 export function BrandMark({
   className,
   large = false,
@@ -12,21 +18,20 @@ export function BrandMark({
   large?: boolean;
   size?: BrandMarkSize;
 }) {
-  const chefHatSize = large ? "absolute size-20" : size === "sidebar" ? "absolute size-[31px]" : size === "header" ? "absolute size-[21px]" : "absolute size-11";
-  const utensilsSize = large ? "absolute top-[43px] size-8" : size === "sidebar" ? "absolute top-[17px] size-[13px]" : size === "header" ? "absolute top-[12px] size-[9px]" : "absolute top-[25px] size-[19px]";
-
   return (
     <div
       className={cn(
+        "relative shrink-0 text-emerald-700",
         large
-          ? "relative grid size-28 place-items-center rounded-[2rem] bg-white text-emerald-700 ring-0"
-          : "relative grid size-16 place-items-center rounded-[1.35rem] bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100",
+          ? "size-28 rounded-[2rem] bg-white"
+          : "rounded-2xl bg-emerald-50 ring-1 ring-emerald-100",
+        !large && markSizes[size],
         className,
       )}
       aria-hidden="true"
     >
-      <ChefHat className={chefHatSize} strokeWidth={1.7} />
-      <Utensils className={utensilsSize} strokeWidth={2.3} />
+      <ChefHat className={cn("absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2", large ? "size-20" : "size-[68.75%]")} strokeWidth={1.7} />
+      <Utensils className={cn("absolute left-1/2 -translate-x-1/2", large ? "top-[43px] size-8" : "top-[39.0625%] size-[29.6875%]")} strokeWidth={2.3} />
     </div>
   );
 }

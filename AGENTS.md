@@ -37,17 +37,14 @@ Favor plain language, predictable interactions, and visible totals. The product 
 
 Respect role boundaries in both the interface and data access. Do not show an action that the current role cannot complete.
 
-## Current phase: frontend-only prototype
+## Current phase: connected workspaces
 
-Until the user explicitly requests backend or authentication work, Billora is a **plain frontend prototype**. Build screens and navigation only.
+Billora uses Supabase Auth and Postgres. Owners register a business workspace and invite employees to join it with individual email/password accounts.
 
-- Do not add real or mock authentication gates, credential allowlists, login-attempt counters, lockouts, sessions, cookies, tokens, route guards, role enforcement, database calls, API dependencies, or storage-backed login state.
-- The sign-in form is only a visual entry point. Any non-empty values must be accepted and submitting the form must navigate directly to the dashboard.
-- Do not require special demo emails or passwords. Do not label the form “admin only” or imply that security has been implemented.
-- Buttons and links that lead between completed frontend pages should navigate freely. Users must be able to move between screens without authorization checks.
-- Component-local state is allowed only for visible UI behavior such as menus, filters, carts, tabs, and dialogs. Do not use state to restrict access to pages.
-- Use representative in-memory demo data and label it when appropriate. Do not persist it unless the user specifically asks for persistence.
-- Product roles and permission descriptions elsewhere in this brief describe future product intent, not functionality to implement during the frontend-only phase.
+- Enforce workspace scope and role permissions in Postgres policies and server-side operations. Derive the current workspace from the verified account membership.
+- Keep the owner's account and authorization separate from employee roles. Employee invitations are single-use, expire, and require the invited email.
+- Use the business profile for checkout, receipts, and reporting. Preserve historical receipt and pricing information when business settings or products change.
+- Use local React state for draft UI and interaction feedback. Persist shared records and held bills through the authenticated workspace API.
 
 ## Core product areas
 

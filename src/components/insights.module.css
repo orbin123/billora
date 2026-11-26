@@ -1,0 +1,160 @@
+.panel {
+  min-width: 0;
+  padding: clamp(16px, 2.2vw, 24px);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgb(24 55 41 / 3%);
+}
+
+.header {
+  display: flex;
+  min-height: 36px;
+  align-items: center;
+  gap: 10px;
+}
+
+.header h3 {
+  min-width: 0;
+  flex: 1;
+  font-family: var(--font-manrope), sans-serif;
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.25;
+  letter-spacing: -.025em;
+}
+
+.icon {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  place-items: center;
+  border-radius: 10px;
+  background: #eff6f1;
+  color: var(--brand-dark);
+}
+
+.icon svg { width: 17px; height: 17px; }
+
+.empty {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--background);
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.listBlock { margin-top: 12px; }
+
+.listScroll {
+  max-height: min(25rem, 58dvh);
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  padding-inline-end: 5px;
+}
+
+.listScroll:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.listToggle {
+  display: flex;
+  width: 100%;
+  min-height: 44px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #f7faf8;
+  color: var(--brand-dark);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: left;
+}
+
+.listToggle:hover { background: var(--brand-light); }
+.listToggle svg { width: 16px; height: 16px; flex: 0 0 16px; }
+.listToggle[aria-expanded="true"] svg { transform: rotate(180deg); }
+.listBlock:has(.bars) .listToggle { margin-top: 12px; }
+
+.row {
+  display: flex;
+  min-height: 42px;
+  align-items: center;
+  gap: 10px;
+  padding-block: 10px;
+  border-top: 1px solid #eaf0ec;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.rowLabel { min-width: 0; flex: 1; overflow-wrap: anywhere; font-weight: 600; }
+.rowLabel small { display: block; margin-top: 2px; color: var(--muted); font-size: 12px; font-weight: 400; }
+.row strong { max-width: 55%; text-align: right; overflow-wrap: anywhere; font-size: 13px; font-variant-numeric: tabular-nums; }
+
+.mark {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  place-items: center;
+  border-radius: 7px;
+  background: var(--background);
+  color: var(--brand-dark);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.revenueTotal {
+  display: block;
+  margin-top: 14px;
+  color: var(--brand-dark);
+  font-family: var(--font-manrope), sans-serif;
+  font-size: clamp(27px, 3.6vw, 38px);
+  font-weight: 800;
+  line-height: 1.14;
+  letter-spacing: -.045em;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.revenueDate {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.revenueDate svg { width: 14px; height: 14px; }
+
+.bars {
+  display: grid;
+  gap: 10px;
+
+}
+
+.bars li {
+  display: grid;
+  grid-template-columns: 3.6rem minmax(24px, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.track { height: 7px; overflow: hidden; border-radius: 999px; background: #eff5f0; }
+.track span { display: block; height: 100%; border-radius: inherit; background: var(--brand); }
+
+@media (max-width: 380px) {
+  .header h3 { font-size: 15px; }
+  .icon { width: 30px; height: 30px; flex-basis: 30px; }
+}

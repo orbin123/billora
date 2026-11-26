@@ -1,0 +1,95 @@
+.manage {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 14px;
+  padding: 8px clamp(14px, 2vw, 23px);
+  border-top: 1px solid var(--border);
+  background: #fbfdfb;
+  font-size: 13px;
+}
+
+.selection, .actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.selectVisible, .billCheckbox, .confirm {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.selectVisible input, .billCheckbox input, .confirm input {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  accent-color: var(--brand);
+}
+
+.billCheckbox {
+  width: 44px;
+  height: 44px;
+  flex-basis: 44px;
+  justify-content: center;
+  margin-left: -9px;
+}
+
+.selectionCount { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.billIdentity { display: flex; min-width: 0; align-items: center; gap: 4px; }
+.billIdentity strong { min-width: 0; overflow-wrap: anywhere; }
+.selectedRow { background: #edf7ef; }
+.notice { margin-block-end: 12px; color: var(--brand-dark); font-size: 13px; }
+
+.danger {
+  border-color: #e8bdc6;
+  color: #912039;
+}
+
+.danger:hover { border-color: #cc7183; background: #fff1f3; }
+
+.confirmDialog {
+  width: min(100%, 420px);
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 20px 58px rgb(24 33 29 / 20%);
+}
+
+.confirmDialog h2 { margin-top: 12px; font-size: 20px; font-weight: 800; }
+.confirmDialog p { margin-top: 8px; color: var(--muted); font-size: 14px; }
+.confirm {
+  margin-top: 14px;
+  padding: 7px 10px;
+  border: 1px solid #efcbd2;
+  border-radius: 10px;
+  background: #fff4f6;
+  color: #81233a;
+  font-size: 13px;
+  line-height: 1.4;
+}
+.confirm input { accent-color: #a72742; }
+.confirmActions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+.confirmDelete { background: #a72742; color: #fff; }
+.confirmDelete:not(:disabled):hover { background: #862033; }
+
+@media (max-width: 700px) {
+  .billIdentity { grid-column: 1 / -1; }
+  .manage, .actions { width: 100%; }
+  .actions button { flex: 1 1 auto; padding-inline: 10px; }
+}
+
+.billActions { display: flex; justify-content: flex-end; gap: 4px; }
+@media (min-width: 701px) {
+  .billActions { justify-self: end; }
+  .billActions[data-editable] { min-width: 76px; }
+}
+@media (max-width: 700px) {
+  .billActions { grid-column: 2; grid-row: 4; }
+}

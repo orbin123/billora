@@ -40,8 +40,10 @@ button {
 
 button:focus-visible,
 a:focus-visible,
-input:focus-visible {
-  outline: 3px solid rgba(8, 119, 71, 0.28);
+input:focus-visible,
+select:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--brand);
   outline-offset: 2px;
 }
 
@@ -66,3 +68,56 @@ input:focus-visible {
 .loader-ring {
   animation: spin .8s linear infinite;
 }
+
+.workspace-field input,
+.workspace-field select {
+  min-height: 44px;
+  min-width: 0;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: white;
+  color: var(--foreground);
+  font-size: 14px;
+}
+
+.workspace-field {
+  display: grid;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.workspace-dialog {
+  margin: auto;
+  max-height: calc(100dvh - 32px);
+  max-width: calc(100vw - 24px);
+  overflow: auto;
+  color: var(--foreground);
+}
+
+.workspace-dialog::backdrop {
+  background: rgb(4 35 24 / 55%);
+}
+
+.workspace-dialog h2 {
+  font-family: var(--font-manrope), sans-serif;
+}
+
+@media (max-width: 700px) {
+  [data-workspace-menu="closed"] { visibility: hidden; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .splash-logo, .loader-ring { animation: none; }
+}
+
+[data-workspace-menu] {
+  overflow-y: auto;
+}
+
+[data-workspace-menu] a {
+  min-height: 44px;
+}
+
+body:has(dialog[open]) { overflow: hidden; }

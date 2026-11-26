@@ -1,38 +1,195 @@
 "use client";
 
-import { useMemo, useState, type ComponentType } from "react";
-import Link from "next/link";
-import { Bell, CalendarDays, ChartNoAxesCombined, ChevronDown, ChevronLeft, ChevronRight, CircleUserRound, Eye, LayoutDashboard, Menu, ReceiptText, Search, Settings, Shapes, UsersRound, UtensilsCrossed, X } from "lucide-react";
-import { BrandMark } from "@/components/brand-mark";
+import { useCallback, useState } from "react";
+import { CalendarDays, ChevronLeft, ChevronRight, Eye, Menu, PencilLine, ReceiptText, Search, Trash2 } from "lucide-react";
+import { useWorkspaceMutation } from "@/lib/use-workspace-mutation";
+import { useWorkspace, useWorkspaceResource } from "@/components/workspace-provider";
+import { Button } from "@/components/ui/button";
+import { WorkspaceDialog } from "@/components/workspace-dialog";
+import { ReceiptDialog } from "@/components/receipt-dialog";
+import { WorkspaceNavigation, WorkspaceProfile } from "@/components/workspace-navigation";
+import { paymentMethods, type Bill, type PaymentMethod } from "@/data/workspace";
+import { formatDay, shiftDate } from "@/lib/bill-dates";
 import styles from "../categories/categories.module.css";
+import billStyles from "./bills.module.css";
 
-type Icon = ComponentType<{ className?: string; strokeWidth?: number }>;
-type Bill = { id: string; customer: string; items: number; total: number; payment: "UPI" | "Cash" | "Card"; time: string };
+import { currencyFormatter } from "@/data/business-profile";
 
-const navigation: Array<{ label: string; icon: Icon; href?: string }> = [
-  { label: "Dashboard", icon: LayoutDashboard, href: "/dashboard" }, { label: "Categories", icon: Shapes, href: "/categories" }, { label: "Foods", icon: UtensilsCrossed, href: "/foods" }, { label: "Billing", icon: ReceiptText, href: "/billing" }, { label: "Today's bills", icon: CalendarDays, href: "/bills" }, { label: "Reports", icon: ChartNoAxesCombined, href: "/reports" }, { label: "Users", icon: UsersRound, href: "/users" }, { label: "Settings", icon: Settings, href: "/settings" },
-];
-const bills: Bill[] = [
-  { id: "BILL-000123", customer: "Walk-in customer", items: 3, total: 230, payment: "UPI", time: "1:18 PM" },
-  { id: "BILL-000122", customer: "Walk-in customer", items: 2, total: 165, payment: "Cash", time: "12:54 PM" },
-  { id: "BILL-000121", customer: "Rahul", items: 4, total: 450, payment: "UPI", time: "12:30 PM" },
-  { id: "BILL-000120", customer: "Walk-in customer", items: 1, total: 70, payment: "Cash", time: "11:47 AM" },
-  { id: "BILL-000119", customer: "Arun", items: 3, total: 230, payment: "Card", time: "11:21 AM" },
-  { id: "BILL-000118", customer: "Nisha", items: 2, total: 310, payment: "UPI", time: "10:45 AM" },
-];
+type Deletion = { scope: "day" | "selected"; bills: Bill[] };
 
-export default function BillsPage() {
-  const [menuOpen, setMenuOpen] = useState(false); const [query, setQuery] = useState(""); const [payment, setPayment] = useState<"All" | Bill["payment"]>("All"); const [dateOffset, setDateOffset] = useState(0); const [selectedBill, setSelectedBill] = useState<Bill | null>(null);
-  const visibleBills = useMemo(() => bills.filter((bill) => (payment === "All" || bill.payment === payment) && `${bill.id} ${bill.customer}`.toLowerCase().includes(query.toLowerCase())), [payment, query]);
-  const total = visibleBills.reduce((sum, bill) => sum + bill.total, 0); const date = dateOffset === 0 ? "Today, 23 August" : dateOffset === -1 ? "Yesterday, 22 August" : "Tomorrow, 24 August";
-  return <div className={styles.shell}><button className={`${styles.scrim} ${menuOpen ? styles.scrimVisible : ""}`} aria-label="Close navigation" onClick={() => setMenuOpen(false)} /><aside className={`${styles.sidebar} ${menuOpen ? styles.sidebarOpen : ""}`}><div className={styles.brandRow}><BrandMark className={styles.brandMark} size="sidebar" /><div className={styles.brandCopy}><strong>BILLORA</strong><span>All Your Billing, One Place.</span></div><button className={styles.closeMenu} onClick={() => setMenuOpen(false)} aria-label="Close menu"><X /></button></div><nav className={styles.nav} aria-label="Main navigation"><span className={styles.navLabel}>Workspace</span>{navigation.map((item) => { const Icon = item.icon; const content = <><Icon /><span>{item.label}</span></>; return item.href ? <Link className={`${styles.navItem} ${item.label === "Today's bills" ? styles.navItemActive : ""}`} key={item.label} href={item.href} aria-current={item.label === "Today's bills" ? "page" : undefined} onClick={() => setMenuOpen(false)}>{content}</Link> : <button className={styles.navItem} type="button" key={item.label}>{content}</button>; })}</nav><div className={styles.sidebarFooter}><div className={styles.storeStatus}><i /><span><strong>Hotel Malabar</strong><small>Counter is online</small></span></div></div></aside>
-    <main className={styles.main}><header className={styles.topbar}><div className={styles.pageIntro}><button className={styles.menuButton} onClick={() => setMenuOpen(true)} aria-label="Open navigation"><Menu /></button><div><p>Sales history</p><h1>Today&apos;s bills</h1></div></div><div className={styles.profileArea}><span className={styles.demoBadge}>Demo data</span><button className={styles.iconButton} aria-label="Notifications"><Bell /></button><button className={styles.profileButton} aria-label="Open profile menu"><span className={styles.avatar}><CircleUserRound /></span><span className={styles.profileCopy}><strong>Ajmal</strong><small>Administrator</small></span><ChevronDown /></button></div></header>
-    <div className={styles.content}><section className={styles.billsHero}><div><p className={styles.eyebrow}>Daily sales</p><h2>A clear view of today&apos;s checkout</h2><p className={styles.heroCopy}>Review completed bills, payment methods, and daily totals in one place.</p></div><div className={styles.dateControl}><button type="button" onClick={() => setDateOffset(-1)} aria-label="Previous day"><ChevronLeft /></button><span><CalendarDays />{date}</span><button type="button" onClick={() => setDateOffset(1)} aria-label="Next day"><ChevronRight /></button></div></section>
-      <section className={`${styles.categoryPanel} ${styles.billsPanel}`}><div className={styles.panelHeader}><div><h2>Completed bills <span>{visibleBills.length}</span></h2><p>All payment statuses are shown as demo data.</p></div><div className={styles.tools}><label className={styles.search}><Search /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search bill or customer" /></label><div className={styles.filters}>{(["All", "UPI", "Cash", "Card"] as const).map((value) => <button type="button" key={value} className={payment === value ? styles.filterActive : ""} onClick={() => setPayment(value)}>{value}</button>)}</div></div></div>
-        <div className={`${styles.tableHeader} ${styles.billsTableHeader}`}><span>Bill number</span><span>Customer</span><span>Items</span><span>Total</span><span>Payment</span><span>Action</span></div><div className={styles.categoryList}>{visibleBills.length ? visibleBills.map((bill) => <article className={`${styles.categoryRow} ${styles.billRow}`} key={bill.id}><strong className={styles.billId}>{bill.id}<small>{bill.time}</small></strong><span className={styles.customer}>{bill.customer}</span><span className={styles.itemCount}>{bill.items} items</span><strong className={styles.billTotal}>₹{bill.total.toLocaleString("en-IN")}</strong><span className={`${styles.payment} ${styles[`payment${bill.payment}`]}`}><i />{bill.payment}</span><button type="button" className={styles.viewButton} onClick={() => setSelectedBill(bill)} aria-label={`View ${bill.id}`}><Eye /></button></article>) : <div className={styles.emptyState}><ReceiptText /><strong>No bills found</strong><span>Try a different search or payment filter.</span></div>}</div><footer className={styles.billsFooter}><span>Showing {visibleBills.length} bills</span><span><strong>Today&apos;s sales</strong><b>₹{total.toLocaleString("en-IN")}</b></span></footer></section></div></main>{selectedBill && <BillModal bill={selectedBill} onClose={() => setSelectedBill(null)} />}</div>;
+function billCount(count: number) {
+  return `${count} ${count === 1 ? "bill" : "bills"}`;
 }
 
-function BillModal({ bill, onClose }: { bill: Bill; onClose: () => void }) {
-  const lineItems = [{ name: "Meals", quantity: 2, price: 70 }, { name: "Fish fry", quantity: 1, price: 120 }, { name: "Egg curry", quantity: 1, price: 25 }]; const subtotal = lineItems.reduce((sum, item) => sum + item.price * item.quantity, 0); const tax = subtotal * .05;
-  return <div className={styles.billModalBackdrop} role="presentation" onMouseDown={onClose}><section className={styles.billModal} role="dialog" aria-modal="true" aria-labelledby="bill-title" onMouseDown={(event) => event.stopPropagation()}><header><div><p>Bill details</p><h2 id="bill-title">{bill.id}</h2></div><button type="button" onClick={onClose} aria-label="Close bill details"><X /></button></header><div className={styles.modalMeta}><span><small>Customer</small><strong>{bill.customer}</strong></span><span><small>Payment</small><strong>{bill.payment}</strong></span><span><small>Time</small><strong>{bill.time}</strong></span></div><div className={styles.modalItems}>{lineItems.map((item) => <div key={item.name}><span><strong>{item.name}</strong><small>₹{item.price} × {item.quantity}</small></span><b>₹{item.price * item.quantity}</b></div>)}</div><div className={styles.modalTotals}><span><b>Subtotal</b><b>₹{subtotal.toFixed(2)}</b></span><span><b>GST (5%)</b><b>₹{tax.toFixed(2)}</b></span><strong><b>Grand total</b><b>₹{(subtotal + tax).toFixed(2)}</b></strong></div><footer><button type="button" onClick={onClose}>Close</button><button type="button"><ReceiptText /> Print / download</button></footer></section></div>;
+export default function BillsPage() {
+  const { allows, billTime, businessDate, money } = useWorkspace();
+  const mutation = useWorkspaceMutation();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const closeMenu = useCallback(() => setMenuOpen(false), []);
+  const [query, setQuery] = useState("");
+  const [payment, setPayment] = useState<"All" | PaymentMethod>("All");
+  const [offset, setOffset] = useState(0);
+  const [receipt, setReceipt] = useState<Bill | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [deletion, setDeletion] = useState<Deletion | null>(null);
+  const [acknowledged, setAcknowledged] = useState(false);
+  const [notice, setNotice] = useState("");
+  const day = shiftDate(businessDate.format(new Date()), offset);
+  const resource = useWorkspaceResource<Bill[]>(`/api/workspace/bills?start=${day}&end=${day}`);
+  const dayBills = resource.data ?? [];
+  const canDelete = allows("Delete bills");
+  const canEdit = allows("Edit bills");
+  const [editing, setEditing] = useState<Bill | null>(null);
+  const visible = dayBills.filter((bill) =>
+    (payment === "All" || payment === bill.payment) &&
+    `${bill.id} ${bill.cashier}`.toLowerCase().includes(query.trim().toLowerCase()),
+  );
+  const totals = new Map<Bill["business"]["currency"], number>();
+  for (const bill of visible) totals.set(bill.business.currency, (totals.get(bill.business.currency) ?? 0) + Math.round(bill.total * 100));
+  const totalLabel = [...totals].map(([currency, amount]) =>
+    currencyFormatter(currency).format(amount / 100)).join(" · ") || money.format(0);
+  const selectedBills = visible.filter((bill) => selected.has(bill.id));
+  const allVisibleSelected = visible.length > 0 && selectedBills.length === visible.length;
+
+  function changeDay(amount: number) {
+    setOffset((current) => Math.min(current + amount, 0));
+    setSelected(new Set());
+    setNotice("");
+  }
+
+  function toggleBill(id: string) {
+    setSelected((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function askToDelete(scope: Deletion["scope"]) {
+    const bills = scope === "day" ? dayBills : selectedBills;
+    if (!bills.length) return;
+    mutation.clearError();
+    setAcknowledged(false);
+    setDeletion({ scope, bills });
+  }
+
+  function confirmDeletion() {
+    if (!deletion || !acknowledged) return;
+    void mutation.run({ kind: "remove-bills", ids: deletion.bills.map(({ id }) => id) }, () => {
+      setNotice(`Deleted ${billCount(deletion.bills.length)}. Dashboard and reports updated.`);
+      setSelected(new Set());
+      setDeletion(null);
+    });
+  }
+
+  return <div className={styles.shell}>
+    <WorkspaceNavigation styles={styles} current="/bills" open={menuOpen} onClose={closeMenu} />
+    <main className={styles.main}>
+      <header className={styles.topbar}><div className={styles.pageIntro}>
+        <button className={styles.menuButton} type="button" onClick={() => setMenuOpen(true)} aria-label="Open navigation"><Menu /></button>
+        <div><p>Sales history</p><h1>Today&apos;s bills</h1></div>
+      </div><WorkspaceProfile styles={styles} /></header>
+      <div className={styles.content}>
+        <section className={styles.billsHero}>
+          <div><h2>Completed bills</h2><p className={styles.heroCopy}>Review bills and reopen receipts for printing.</p></div>
+          <div className={styles.dateControl}>
+            <button type="button" onClick={() => changeDay(-1)} aria-label="Previous day"><ChevronLeft /></button>
+            <span><CalendarDays />{offset === 0 ? "Today, " : offset === -1 ? "Yesterday, " : ""}{formatDay(day)}</span>
+            <button type="button" onClick={() => changeDay(1)} aria-label="Next day" disabled={offset === 0}><ChevronRight /></button>
+          </div>
+        </section>
+        {notice && <p className={billStyles.notice} role="status">{notice}</p>}
+        <section className={`${styles.categoryPanel} ${styles.billsPanel}`}>
+          <div className={styles.panelHeader}><div><h2>Bill history <span>{visible.length}</span></h2></div>
+            <div className={styles.tools}>
+              <label className={styles.search}><Search /><input value={query} onChange={(event) => { setQuery(event.target.value); setSelected(new Set()); }} placeholder="Search bill or cashier" aria-label="Search bill or cashier" /></label>
+              <label className="workspace-field">Payment
+                <select aria-label="Payment method" value={payment} onChange={(event) => { setPayment(event.target.value as "All" | PaymentMethod); setSelected(new Set()); }}>
+                  <option value="All">All methods</option>{paymentMethods.map((method) => <option key={method}>{method}</option>)}
+                </select>
+              </label>
+            </div>
+          </div>
+          {canDelete && dayBills.length > 0 && <div className={billStyles.manage}>
+            <div className={billStyles.selection}>
+              <label className={billStyles.selectVisible}>
+                <input
+                  type="checkbox"
+                  disabled={!visible.length}
+                  checked={allVisibleSelected}
+                  ref={(element) => {
+                    if (element) element.indeterminate = selectedBills.length > 0 && !allVisibleSelected;
+                  }}
+                  onChange={() => setSelected(allVisibleSelected ? new Set() : new Set(visible.map((bill) => bill.id)))}
+                />
+                Select visible bills
+              </label>
+              <span className={billStyles.selectionCount} aria-live="polite">{selectedBills.length} selected</span>
+            </div>
+            <div className={billStyles.actions}>
+              <Button type="button" variant="outline" className={billStyles.danger} disabled={!selectedBills.length} onClick={() => askToDelete("selected")}>Delete selected</Button>
+              <Button type="button" variant="outline" className={billStyles.danger} onClick={() => askToDelete("day")}><Trash2 size={16} aria-hidden="true" /> Delete day’s bills</Button>
+            </div>
+          </div>}
+          <div className={`${styles.tableHeader} ${styles.billsTableHeader}`}><span>Bill number</span><span>Cashier</span><span>Items</span><span>Total</span><span>Payment</span><span>Action</span></div>
+          <div className={styles.categoryList}>
+            {resource.error && <p role="alert" className="p-4">{resource.error}</p>}
+            {!resource.data && !resource.error && <p role="status" className="p-4">Loading bills…</p>}
+            {visible.map((bill) => <article className={`${styles.categoryRow} ${styles.billRow} ${selected.has(bill.id) ? billStyles.selectedRow : ""}`} key={bill.id}>
+              <div className={billStyles.billIdentity}>
+                {canDelete && <label className={billStyles.billCheckbox}>
+                  <input type="checkbox" checked={selected.has(bill.id)} onChange={() => toggleBill(bill.id)} aria-label={`Select ${bill.id}`} />
+                </label>}
+                <strong className={styles.billId}>{bill.id}<small>{billTime.format(new Date(bill.createdAt))}</small></strong>
+              </div>
+              <span className={styles.customer}>{bill.cashier}</span>
+              <span className={styles.itemCount}>{bill.lines.reduce((sum, line) => sum + line.quantity, 0)} items</span>
+              <strong className={styles.billTotal}>{currencyFormatter(bill.business.currency).format(bill.total)}</strong>
+              <span className={`${styles.payment} ${styles[`payment${bill.payment}`] ?? styles.paymentUPI}`}><i />{bill.payment}</span>
+              <div className={billStyles.billActions} data-editable={canEdit || undefined}>
+                <button type="button" className={styles.viewButton} onClick={() => setReceipt(bill)} aria-label={`View ${bill.id}`}><Eye /></button>
+                {canEdit && <button type="button" className={styles.moreButton} aria-label={`Edit ${bill.id}`} onClick={() => { mutation.clearError(); setEditing(bill); }}><PencilLine size={17} /></button>}
+              </div>
+            </article>)}
+            {!visible.length && resource.data && <div className={styles.emptyState}><ReceiptText /><strong>No bills found</strong><span>Complete a bill or try a different date or filter.</span></div>}
+          </div>
+          <footer className={styles.billsFooter}><span>Showing {billCount(visible.length)}</span><span><strong>Visible sales</strong><b>{totalLabel}</b></span></footer>
+        </section>
+      </div>
+    </main>
+    {deletion && <WorkspaceDialog titleId="delete-bills-title" onClose={() => setDeletion(null)} className={billStyles.confirmDialog}>
+      <div className={styles.dialogIcon}><Trash2 aria-hidden="true" /></div>
+      <h2 id="delete-bills-title">{deletion.scope === "day" ? `Delete all bills for ${formatDay(day)}?` : `Delete ${billCount(deletion.bills.length)}?`}</h2>
+      <p>
+        {deletion.scope === "day"
+          ? `This deletes ${billCount(deletion.bills.length)} on this date, including bills outside your search or payment filter.`
+          : `This deletes the selected ${billCount(deletion.bills.length)} from ${formatDay(day)}.`}
+      </p>
+      <p>These bills will be removed from sales reports. Adjust inventory separately if needed. This cannot be undone.</p>
+      {mutation.error && <p role="alert" className="text-rose-800">{mutation.error}</p>}
+      <label className={billStyles.confirm}>
+        <input type="checkbox" checked={acknowledged} onChange={(event) => setAcknowledged(event.target.checked)} />
+        I understand these bills will be deleted.
+      </label>
+      <div className={billStyles.confirmActions}>
+        <Button type="button" variant="outline" onClick={() => setDeletion(null)}>Keep bills</Button>
+        <Button type="button" className={billStyles.confirmDelete} disabled={!acknowledged || mutation.pending} onClick={confirmDeletion}>Delete {billCount(deletion.bills.length)}</Button>
+      </div>
+    </WorkspaceDialog>}
+    {editing && <WorkspaceDialog titleId="edit-bill-title" onClose={() => setEditing(null)} className="w-md rounded-2xl bg-white p-5">
+      <form className="grid gap-4" onSubmit={(event) => {
+        event.preventDefault();
+        void mutation.run({ kind: "edit-bill", id: editing.id, customerName: editing.customerName, orderType: editing.orderType },
+          () => { setEditing(null); setNotice("Bill details updated."); });
+      }}>
+        <h2 id="edit-bill-title" className="text-lg font-extrabold">Edit {editing.id}</h2>
+        <label className="workspace-field">Customer name<input maxLength={120} value={editing.customerName} onChange={(event) => setEditing({ ...editing, customerName: event.target.value })} /></label>
+        <label className="workspace-field">Order type<select value={editing.orderType} onChange={(event) => setEditing({ ...editing, orderType: event.target.value === "Dine In" ? "Dine In" : "Pick Up" })}><option>Pick Up</option><option>Dine In</option></select></label>
+        {mutation.error && <p role="alert" className="text-sm text-rose-800">{mutation.error}</p>}
+        <footer className="flex justify-end gap-2"><Button type="button" variant="outline" onClick={() => setEditing(null)}>Cancel</Button><Button disabled={mutation.pending}>Save changes</Button></footer>
+      </form>
+    </WorkspaceDialog>}
+    {receipt && <ReceiptDialog bill={receipt} onClose={() => setReceipt(null)} />}
+  </div>;
 }
