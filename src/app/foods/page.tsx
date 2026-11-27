@@ -3,6 +3,8 @@
 import { useCallback, useState } from "react";
 import Link from "next/link";
 import { Check, Menu, PencilLine, Plus, Search, Trash2, UtensilsCrossed, X } from "lucide-react";
+import { useListPage } from "@/lib/use-list-page";
+import { ListPagination } from "@/components/list-pagination";
 import { useWorkspaceMutation } from "@/lib/use-workspace-mutation";
 import { useWorkspace } from "@/components/workspace-provider";
 import { WorkspaceDialog } from "@/components/workspace-dialog";
@@ -24,6 +26,7 @@ export default function FoodsPage() {
   const [deleting, setDeleting] = useState<Food | null>(null);
   const [notice, setNotice] = useState("");
   const visible = foods.filter((food) => (filter === "All" || food.status === filter) && food.name.toLowerCase().includes(query.trim().toLowerCase()));
+  const pagination = useListPage(visible);
 
   return <div className={styles.shell}>
     <WorkspaceNavigation styles={styles} current="/foods" open={menuOpen} onClose={closeMenu} />
@@ -42,15 +45,15 @@ export default function FoodsPage() {
           <div className={styles.panelHeader}>
             <div><h2>All foods <span>{foods.length}</span></h2></div>
             <div className={styles.tools}>
-              <label className={styles.search}><Search /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search foods" aria-label="Search foods" /></label>
+              <label className={styles.search}><Search /><input value={query} onChange={(event) => { setQuery(event.target.value); pagination.setPage(1); }} placeholder="Search foods" aria-label="Search foods" /></label>
               <div className={styles.filters}>{(["All", "Available", "Unavailable"] as const).map((value) =>
-                <button type="button" key={value} aria-pressed={filter === value} className={filter === value ? styles.filterActive : ""} onClick={() => setFilter(value)}>{value}</button>,
+                <button type="button" key={value} aria-pressed={filter === value} className={filter === value ? styles.filterActive : ""} onClick={() => { setFilter(value); pagination.setPage(1); }}>{value}</button>,
               )}</div>
             </div>
           </div>
           <div className={`${styles.tableHeader} ${styles.foodTableHeader}`}><span>Food</span><span>Category</span><span>Price</span><span>Status</span><span>Actions</span></div>
           <div className={styles.categoryList}>
-            {visible.map((food) => <article className={`${styles.categoryRow} ${styles.foodRow}`} key={food.id}>
+            {pagination.items.map((food) => <article className={`${styles.categoryRow} ${styles.foodRow}`} key={food.id}>
               <div className={styles.categoryName}>
                 {/* eslint-disable-next-line @next/next/no-img-element -- Local file preview. */}
                 <span className={`${styles.foodThumb} ${styles[food.tone] ?? ""}`}>{food.image ? <img src={food.image} alt="" /> : food.emoji}</span>
@@ -66,7 +69,7 @@ export default function FoodsPage() {
             </article>)}
             {!visible.length && <div className={styles.emptyState}><UtensilsCrossed /><strong>No foods found</strong><span>Try a different search or add a food item.</span></div>}
           </div>
-          <footer className={styles.panelFooter}>Showing {visible.length} of {foods.length} foods</footer>
+          <ListPagination pagination={pagination} label="foods" singular="food" />
         </section>
       </div>
     </main>

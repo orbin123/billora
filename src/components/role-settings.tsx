@@ -5,6 +5,7 @@ import { Check, PencilLine, Plus, ShieldCheck, Trash2, X } from "lucide-react";
 import { useWorkspaceMutation } from "@/lib/use-workspace-mutation";
 import { useWorkspace } from "@/components/workspace-provider";
 import { WorkspaceDialog } from "@/components/workspace-dialog";
+import { InsightList } from "./insight-list";
 import { SettingsTitle } from "./settings-title";
 import styles from "./settings-surface.module.css";
 import { Button } from "@/components/ui/button";
@@ -59,21 +60,19 @@ export function RoleSettings() {
       <Button onClick={() => openRole({ id: "", name: "", permissions: [] }, true)}><Plus size={16} /> Add role</Button>
     </div>
     {notice && <p role="status" className={styles.feedback}>{notice}</p>}
-    <ul className={styles.roleList}>
-      {roles.map((role) => {
-        const managerRole = role.id === "manager";
-        const builtIn = managerRole || role.id === "employee";
-        const assigned = employees.some((employee) => employee.roleId === role.id);
-        return <li key={role.id} className={styles.roleRow}>
-          <div className={styles.roleName}><strong>{role.name}</strong><small>{role.permissions.length} permissions{builtIn ? " · Built-in" : assigned ? " · Assigned" : ""}</small></div>
-          <div className={styles.roleActions}>
-            <Button variant="outline" aria-label={`View ${role.name} role`} onClick={() => openRole(role)}>View</Button>
-            {!managerRole && <Button variant="outline" aria-label={`Edit ${role.name} role`} onClick={() => openRole(role, true)}>Edit</Button>}
-            {!builtIn && !assigned && <Button variant="ghost" aria-label={`Delete ${role.name} role`} onClick={() => { mutation.clearError(); setDeleting(role); }}><Trash2 size={16} /></Button>}
-          </div>
-        </li>;
-      })}
-    </ul>
+    <InsightList label="Roles" items={roles} renderItem={(role) => {
+      const managerRole = role.id === "manager";
+      const builtIn = managerRole || role.id === "employee";
+      const assigned = employees.some((employee) => employee.roleId === role.id);
+      return <li key={role.id} className={styles.roleRow}>
+        <div className={styles.roleName}><strong>{role.name}</strong><small>{role.permissions.length} permissions{builtIn ? " · Built-in" : assigned ? " · Assigned" : ""}</small></div>
+        <div className={styles.roleActions}>
+          <Button variant="outline" aria-label={`View ${role.name} role`} onClick={() => openRole(role)}>View</Button>
+          {!managerRole && <Button variant="outline" aria-label={`Edit ${role.name} role`} onClick={() => openRole(role, true)}>Edit</Button>}
+          {!builtIn && !assigned && <Button variant="ghost" aria-label={`Delete ${role.name} role`} onClick={() => { mutation.clearError(); setDeleting(role); }}><Trash2 size={16} /></Button>}
+        </div>
+      </li>;
+    }} />
     {draft && <WorkspaceDialog titleId="role-dialog-title" onClose={() => setDraft(null)} className={styles.roleDialog}>
       <form className={styles.roleForm} onSubmit={save}>
         <header className={styles.dialogHeading}>

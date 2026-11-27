@@ -22,7 +22,7 @@ export function InsightEmpty({ children }: { children: ReactNode }) {
   return <p className={styles.empty}>{children}</p>;
 }
 
-type InsightRow = { label: string; value: string; detail?: string; mark?: ReactNode };
+type InsightRow = { key?: string | number; label: string; value: string; detail?: string; mark?: ReactNode };
 
 export function InsightRows({ rows, label, empty, ranked }: { rows: InsightRow[]; label: string; empty: string; ranked?: boolean }) {
   if (!rows.length) return <InsightEmpty>{empty}</InsightEmpty>;
@@ -31,8 +31,8 @@ export function InsightRows({ rows, label, empty, ranked }: { rows: InsightRow[]
     items={rows}
     label={label}
     ordered={ranked}
-    renderItem={({ label, value, detail, mark }) => (
-      <li className={styles.row} key={label}>
+    renderItem={({ key, label, value, detail, mark }) => (
+      <li className={styles.row} key={key ?? label}>
         {mark && <span className={styles.mark} aria-hidden="true">{mark}</span>}
         <span className={styles.rowLabel}>{label}{detail && <small>{detail}</small>}</span>
         <strong>{value}</strong>

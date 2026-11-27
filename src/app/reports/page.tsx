@@ -52,7 +52,7 @@ export default function ReportsPage() {
             <InsightRows label="Payment methods" rows={summary.payments.map(({ payment, currency, amount }) => ({ label: `${payment} · ${currency}`, value: currencyFormatter(currency).format(amount / 100) }))} empty="No payments in this period." />
           </InsightPanel>
           <InsightPanel title="Top-selling foods" icon={UtensilsCrossed} className={styles.sellers}>
-            <InsightRows label="Top-selling foods" ranked rows={summary.foods.slice(0, 4).map(({ name, items }, index) => ({ label: name, value: `${items} sold`, mark: index + 1 }))} empty="No foods sold in this period." />
+            <InsightRows label="Top-selling foods" ranked rows={summary.foods.map(({ name, items }, index) => ({ label: name, value: `${items} sold`, mark: index + 1 }))} empty="No foods sold in this period." />
           </InsightPanel>
         </section>
         </>}

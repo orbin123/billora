@@ -1,12 +1,15 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useId, useRef, useState } from "react";
 import { Banknote, Check, CheckCircle2, CookingPot, CreditCard, Menu, Minus, Plus, ReceiptText, Search, ShoppingBag, Smartphone, Trash2, UtensilsCrossed, X } from "lucide-react";
+import { useListPage } from "@/lib/use-list-page";
 import { useWorkspaceMutation } from "@/lib/use-workspace-mutation";
 import { useWorkspace } from "@/components/workspace-provider";
-import { ReceiptDialog } from "@/components/receipt-dialog";
+import { listPreviewSize, ListToggle } from "@/components/insight-list";
+import { ListPagination } from "@/components/list-pagination";
 import { WorkspaceDialog } from "@/components/workspace-dialog";
 import { WorkspaceNavigation, WorkspaceProfile } from "@/components/workspace-navigation";
+import { currencyFormatter } from "@/data/business-profile";
 import { paymentMethods, totalsFor, type Bill, type BillLine, type Food, type OrderDetails, type PaymentMethod } from "@/data/workspace";
 import styles from "./billing.module.css";
 import common from "../categories/categories.module.css";
@@ -22,11 +25,15 @@ export default function BillingPage() {
   const [query, setQuery] = useState("");
   const [cart, setCart] = useState<BillLine[]>(heldBill?.lines ?? []);
   const [cartOpen, setCartOpen] = useState(false);
+  const [cartExpanded, setCartExpanded] = useState(false);
+  const cartListId = useId();
+  const cartList = useRef<HTMLDivElement>(null);
+  const catalogHeading = useRef<HTMLHeadingElement>(null);
   const [notice, setNotice] = useState("");
   const held = heldBill !== null;
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [order, setOrder] = useState<OrderDetails>(heldBill ?? initialOrder);
-  const [receipt, setReceipt] = useState<Bill | null>(null);
+  const [completedBill, setCompletedBill] = useState<Bill | null>(null);
   const availableCategories = categories.filter((category) => category.status === "Active");
   const filteredFoods = foods.filter((food) =>
     food.status === "Available" &&
@@ -34,9 +41,11 @@ export default function BillingPage() {
     (activeCategory === null || food.categoryId === activeCategory) &&
     food.name.toLowerCase().includes(query.trim().toLowerCase()),
   );
+  const foodPage = useListPage(filteredFoods, 12);
 
   const itemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
   const pricedCart = cart.map((item) => ({ ...item, price: foods.find(({ id }) => id === item.id)?.price ?? item.price }));
+  const visibleCart = cartExpanded ? pricedCart : pricedCart.slice(0, listPreviewSize);
   const totals = totalsFor(pricedCart, business);
   const checkoutAttempt = useRef<{ input: string; key: string } | null>(null);
 
@@ -65,11 +74,20 @@ export default function BillingPage() {
       if (!bill) return;
       checkoutAttempt.current = null;
       setCart([]);
+      setCartExpanded(false);
       setOrder(initialOrder);
       setPaymentOpen(false);
       setNotice("");
-      setReceipt(bill);
+      setCompletedBill(bill);
     });
+  }
+
+  function startNewBill() {
+    setCompletedBill(null);
+    setQuery("");
+    setActiveCategory(null);
+    foodPage.setPage(1);
+    requestAnimationFrame(() => catalogHeading.current?.focus());
   }
 
   function toggleHold() {
@@ -92,20 +110,21 @@ export default function BillingPage() {
         <div className={styles.workspace}>
           <section className={styles.catalogue} aria-label="Food catalogue">
             <div className={styles.catalogueHeading}>
-              <h2>Food catalogue</h2>
-              <p className={styles.foodCount}>{filteredFoods.length} foods</p>
+              <h2 ref={catalogHeading} tabIndex={-1}>Food catalogue</h2>
+              {foodPage.pageCount === 1 && <p className={styles.foodCount}>{filteredFoods.length} foods</p>}
             </div>
             <label className={styles.searchBox}>
               <Search aria-hidden="true" />
-              <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search foods by name…" aria-label="Search foods" />
-              {query && <button type="button" onClick={() => setQuery("")} aria-label="Clear search"><X aria-hidden="true" /></button>}
+              <input value={query} onChange={(event) => { setQuery(event.target.value); foodPage.setPage(1); }} placeholder="Search foods by name…" aria-label="Search foods" />
+              {query && <button type="button" onClick={() => { setQuery(""); foodPage.setPage(1); }} aria-label="Clear search"><X aria-hidden="true" /></button>}
             </label>
             <div className={styles.categoryList} aria-label="Food categories">
-              <button type="button" onClick={() => setActiveCategory(null)} className={activeCategory === null ? styles.categoryActive : ""} aria-pressed={activeCategory === null}><UtensilsCrossed aria-hidden="true" /> All</button>
-              {availableCategories.map((category) => <button type="button" key={category.id} onClick={() => setActiveCategory(category.id)} className={activeCategory === category.id ? styles.categoryActive : ""} aria-pressed={activeCategory === category.id}>{category.name}</button>)}
+              <button type="button" onClick={() => { setActiveCategory(null); foodPage.setPage(1); }} className={activeCategory === null ? styles.categoryActive : ""} aria-pressed={activeCategory === null}><UtensilsCrossed aria-hidden="true" /> All</button>
+              {availableCategories.map((category) => <button type="button" key={category.id} onClick={() => { setActiveCategory(category.id); foodPage.setPage(1); }} className={activeCategory === category.id ? styles.categoryActive : ""} aria-pressed={activeCategory === category.id}>{category.name}</button>)}
             </div>
+            {foodPage.pageCount > 1 && <ListPagination pagination={foodPage} label="foods" singular="food" className={styles.cataloguePagination} />}
             {filteredFoods.length ? <div className={styles.foodGrid}>
-              {filteredFoods.map((food) => {
+              {foodPage.items.map((food) => {
                 const inCart = cart.find((item) => item.id === food.id);
                 return <article className={styles.foodCard} key={food.id}>
                   <div className={`${styles.foodVisual} ${styles[food.tone] ?? ""}`} aria-hidden="true">
@@ -130,8 +149,8 @@ export default function BillingPage() {
               {held && <span className={styles.heldButton}><Check aria-hidden="true" /> Held</span>}
               <button type="button" className={styles.closeCart} onClick={() => setCartOpen(false)} aria-label="Close current bill"><X /></button>
             </div>
-            <div className={styles.cartItems}>
-              {cart.length ? pricedCart.map((item) => {
+            <div id={cartListId} ref={cartList} className={styles.cartItems}>
+              {cart.length ? visibleCart.map((item) => {
                 const food = foods.find(({ id }) => id === item.id);
                 return <article className={styles.cartItem} key={item.id}>
                   <span className={`${styles.cartEmoji} ${styles[food?.tone ?? ""] ?? ""}`} aria-hidden="true">{food?.emoji}</span>
@@ -144,6 +163,12 @@ export default function BillingPage() {
                 </article>;
               }) : <div className={styles.emptyBill}><ShoppingBag aria-hidden="true" /><strong>Your bill is empty</strong><span>Add foods from the menu to get started.</span></div>}
             </div>
+            {cart.length > listPreviewSize && <div className={styles.cartToggle}>
+              <ListToggle id={cartListId} label="Current bill items" remaining={cart.length - listPreviewSize} expanded={cartExpanded} onToggle={() => {
+                if (cartExpanded) cartList.current?.scrollTo({ top: 0 });
+                setCartExpanded(!cartExpanded);
+              }} />
+            </div>}
             <div className={styles.summary}>
               <div><span>Subtotal</span><strong>{money.format(totals.subtotal)}</strong></div>
               <div><span>CGST ({business.gstComponentRate}%)</span><strong>{money.format(totals.cgst)}</strong></div>
@@ -165,10 +190,34 @@ export default function BillingPage() {
         {notice && !mutation.error && <div className={styles.notice} role="status"><Check aria-hidden="true" />{notice}<button type="button" onClick={() => setNotice("")} aria-label="Dismiss message"><X aria-hidden="true" /></button></div>}
         {cartOpen && <button className={styles.billScrim} type="button" tabIndex={-1} aria-label="Dismiss current bill" onClick={() => setCartOpen(false)} />}
         {paymentOpen && <PaymentDialog total={totals.total} order={order} onOrderChange={setOrder} onClose={() => { if (!mutation.pending) { mutation.clearError(); setPaymentOpen(false); } }} onComplete={completeBill} pending={mutation.pending} error={mutation.error} />}
-        {receipt && <ReceiptDialog bill={receipt} onClose={() => { setReceipt(null); setNotice(`Bill ${receipt.id} completed.`); }} />}
+        {completedBill && <PaymentSuccess bill={completedBill} onNewBill={startNewBill} />}
       </div>
     </main>
   </div>;
+}
+
+function PaymentSuccess({ bill, onNewBill }: { bill: Bill; onNewBill: () => void }) {
+  const money = currencyFormatter(bill.business.currency);
+
+  return <WorkspaceDialog titleId="payment-success-title" onClose={onNewBill} className={styles.successModal}>
+    <header className={styles.successHeader}>
+      <span className={styles.successIcon}><Check aria-hidden="true" /></span>
+      <h2 id="payment-success-title">Payment successful</h2>
+      <p>{bill.id} saved</p>
+    </header>
+    <div className={styles.successTotal}>
+      <span>Amount paid</span>
+      <strong>{money.format(bill.total)}</strong>
+    </div>
+    <dl className={styles.successDetails}>
+      <div><dt>Payment method</dt><dd>{bill.payment}</dd></div>
+      <div><dt>Order type</dt><dd>{bill.orderType}</dd></div>
+      {bill.customerName && <div><dt>Customer</dt><dd>{bill.customerName}</dd></div>}
+      {bill.received !== undefined && <div><dt>Cash received</dt><dd>{money.format(bill.received)}</dd></div>}
+      {bill.change !== undefined && <div><dt>Change to return</dt><dd>{money.format(bill.change)}</dd></div>}
+    </dl>
+    <button className={styles.completePayment} type="button" onClick={onNewBill}><Plus aria-hidden="true" /> New bill</button>
+  </WorkspaceDialog>;
 }
 
 function QuantityControl({ name, quantity, limit, held, onChange, compact }: {

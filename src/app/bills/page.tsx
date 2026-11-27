@@ -2,11 +2,13 @@
 
 import { useCallback, useState } from "react";
 import { CalendarDays, ChevronLeft, ChevronRight, Eye, Menu, PencilLine, ReceiptText, Search, Trash2 } from "lucide-react";
+import { useListPage } from "@/lib/use-list-page";
 import { useWorkspaceMutation } from "@/lib/use-workspace-mutation";
 import { useWorkspace, useWorkspaceResource } from "@/components/workspace-provider";
+import { BillDetailsDialog } from "@/components/bill-details-dialog";
+import { ListPagination } from "@/components/list-pagination";
 import { Button } from "@/components/ui/button";
 import { WorkspaceDialog } from "@/components/workspace-dialog";
-import { ReceiptDialog } from "@/components/receipt-dialog";
 import { WorkspaceNavigation, WorkspaceProfile } from "@/components/workspace-navigation";
 import { paymentMethods, type Bill, type PaymentMethod } from "@/data/workspace";
 import { formatDay, shiftDate } from "@/lib/bill-dates";
@@ -29,7 +31,7 @@ export default function BillsPage() {
   const [query, setQuery] = useState("");
   const [payment, setPayment] = useState<"All" | PaymentMethod>("All");
   const [offset, setOffset] = useState(0);
-  const [receipt, setReceipt] = useState<Bill | null>(null);
+  const [details, setDetails] = useState<Bill | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [deletion, setDeletion] = useState<Deletion | null>(null);
   const [acknowledged, setAcknowledged] = useState(false);
@@ -44,17 +46,31 @@ export default function BillsPage() {
     (payment === "All" || payment === bill.payment) &&
     `${bill.id} ${bill.cashier}`.toLowerCase().includes(query.trim().toLowerCase()),
   );
+  const billPage = useListPage(visible);
   const totals = new Map<Bill["business"]["currency"], number>();
   for (const bill of visible) totals.set(bill.business.currency, (totals.get(bill.business.currency) ?? 0) + Math.round(bill.total * 100));
   const totalLabel = [...totals].map(([currency, amount]) =>
     currencyFormatter(currency).format(amount / 100)).join(" · ") || money.format(0);
   const selectedBills = visible.filter((bill) => selected.has(bill.id));
-  const allVisibleSelected = visible.length > 0 && selectedBills.length === visible.length;
+  const pageSelectedCount = billPage.items.filter((bill) => selected.has(bill.id)).length;
+  const allPageSelected = billPage.items.length > 0 && pageSelectedCount === billPage.items.length;
 
   function changeDay(amount: number) {
     setOffset((current) => Math.min(current + amount, 0));
+    billPage.setPage(1);
     setSelected(new Set());
     setNotice("");
+  }
+
+  function togglePage() {
+    setSelected((current) => {
+      const next = new Set(current);
+      for (const { id } of billPage.items) {
+        if (allPageSelected) next.delete(id);
+        else next.add(id);
+      }
+      return next;
+    });
   }
 
   function toggleBill(id: string) {
@@ -92,7 +108,7 @@ export default function BillsPage() {
       </div><WorkspaceProfile styles={styles} /></header>
       <div className={styles.content}>
         <section className={styles.billsHero}>
-          <div><h2>Completed bills</h2><p className={styles.heroCopy}>Review bills and reopen receipts for printing.</p></div>
+          <div><h2>Completed bills</h2><p className={styles.heroCopy}>Review past orders and payment details.</p></div>
           <div className={styles.dateControl}>
             <button type="button" onClick={() => changeDay(-1)} aria-label="Previous day"><ChevronLeft /></button>
             <span><CalendarDays />{offset === 0 ? "Today, " : offset === -1 ? "Yesterday, " : ""}{formatDay(day)}</span>
@@ -103,9 +119,9 @@ export default function BillsPage() {
         <section className={`${styles.categoryPanel} ${styles.billsPanel}`}>
           <div className={styles.panelHeader}><div><h2>Bill history <span>{visible.length}</span></h2></div>
             <div className={styles.tools}>
-              <label className={styles.search}><Search /><input value={query} onChange={(event) => { setQuery(event.target.value); setSelected(new Set()); }} placeholder="Search bill or cashier" aria-label="Search bill or cashier" /></label>
+              <label className={styles.search}><Search /><input value={query} onChange={(event) => { setQuery(event.target.value); setSelected(new Set()); billPage.setPage(1); }} placeholder="Search bill or cashier" aria-label="Search bill or cashier" /></label>
               <label className="workspace-field">Payment
-                <select aria-label="Payment method" value={payment} onChange={(event) => { setPayment(event.target.value as "All" | PaymentMethod); setSelected(new Set()); }}>
+                <select aria-label="Payment method" value={payment} onChange={(event) => { setPayment(event.target.value as "All" | PaymentMethod); setSelected(new Set()); billPage.setPage(1); }}>
                   <option value="All">All methods</option>{paymentMethods.map((method) => <option key={method}>{method}</option>)}
                 </select>
               </label>
@@ -116,14 +132,14 @@ export default function BillsPage() {
               <label className={billStyles.selectVisible}>
                 <input
                   type="checkbox"
-                  disabled={!visible.length}
-                  checked={allVisibleSelected}
+                  disabled={!billPage.items.length}
+                  checked={allPageSelected}
                   ref={(element) => {
-                    if (element) element.indeterminate = selectedBills.length > 0 && !allVisibleSelected;
+                    if (element) element.indeterminate = pageSelectedCount > 0 && !allPageSelected;
                   }}
-                  onChange={() => setSelected(allVisibleSelected ? new Set() : new Set(visible.map((bill) => bill.id)))}
+                  onChange={togglePage}
                 />
-                Select visible bills
+                Select bills on this page
               </label>
               <span className={billStyles.selectionCount} aria-live="polite">{selectedBills.length} selected</span>
             </div>
@@ -136,7 +152,7 @@ export default function BillsPage() {
           <div className={styles.categoryList}>
             {resource.error && <p role="alert" className="p-4">{resource.error}</p>}
             {!resource.data && !resource.error && <p role="status" className="p-4">Loading bills…</p>}
-            {visible.map((bill) => <article className={`${styles.categoryRow} ${styles.billRow} ${selected.has(bill.id) ? billStyles.selectedRow : ""}`} key={bill.id}>
+            {billPage.items.map((bill) => <article className={`${styles.categoryRow} ${styles.billRow} ${selected.has(bill.id) ? billStyles.selectedRow : ""}`} key={bill.id}>
               <div className={billStyles.billIdentity}>
                 {canDelete && <label className={billStyles.billCheckbox}>
                   <input type="checkbox" checked={selected.has(bill.id)} onChange={() => toggleBill(bill.id)} aria-label={`Select ${bill.id}`} />
@@ -148,13 +164,14 @@ export default function BillsPage() {
               <strong className={styles.billTotal}>{currencyFormatter(bill.business.currency).format(bill.total)}</strong>
               <span className={`${styles.payment} ${styles[`payment${bill.payment}`] ?? styles.paymentUPI}`}><i />{bill.payment}</span>
               <div className={billStyles.billActions} data-editable={canEdit || undefined}>
-                <button type="button" className={styles.viewButton} onClick={() => setReceipt(bill)} aria-label={`View ${bill.id}`}><Eye /></button>
+                <button type="button" className={styles.viewButton} onClick={() => setDetails(bill)} aria-label={`View ${bill.id}`}><Eye aria-hidden="true" /></button>
                 {canEdit && <button type="button" className={styles.moreButton} aria-label={`Edit ${bill.id}`} onClick={() => { mutation.clearError(); setEditing(bill); }}><PencilLine size={17} /></button>}
               </div>
             </article>)}
             {!visible.length && resource.data && <div className={styles.emptyState}><ReceiptText /><strong>No bills found</strong><span>Complete a bill or try a different date or filter.</span></div>}
           </div>
-          <footer className={styles.billsFooter}><span>Showing {billCount(visible.length)}</span><span><strong>Visible sales</strong><b>{totalLabel}</b></span></footer>
+          <ListPagination pagination={billPage} label="bills" singular="bill" />
+          {resource.data && <footer className={`${styles.billsFooter} ${billStyles.salesTotal}`}><span><strong>Filtered sales</strong><b>{totalLabel}</b></span></footer>}
         </section>
       </div>
     </main>
@@ -190,6 +207,6 @@ export default function BillsPage() {
         <footer className="flex justify-end gap-2"><Button type="button" variant="outline" onClick={() => setEditing(null)}>Cancel</Button><Button disabled={mutation.pending}>Save changes</Button></footer>
       </form>
     </WorkspaceDialog>}
-    {receipt && <ReceiptDialog bill={receipt} onClose={() => setReceipt(null)} />}
+    {details && <BillDetailsDialog bill={details} onClose={() => setDetails(null)} />}
   </div>;
 }
