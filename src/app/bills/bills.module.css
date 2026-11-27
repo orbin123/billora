@@ -45,6 +45,7 @@
 .billIdentity strong { min-width: 0; overflow-wrap: anywhere; }
 .selectedRow { background: #edf7ef; }
 .notice { margin-block-end: 12px; color: var(--brand-dark); font-size: 13px; }
+.salesTotal { justify-content: flex-end; }
 
 .danger {
   border-color: #e8bdc6;

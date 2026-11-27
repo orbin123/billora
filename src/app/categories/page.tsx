@@ -2,6 +2,8 @@
 
 import { useCallback, useMemo, useState, type FormEvent } from "react";
 import { Check, CookingPot, Menu, PencilLine, Plus, Search, Shapes, Tags, Trash2, X } from "lucide-react";
+import { useListPage } from "@/lib/use-list-page";
+import { ListPagination } from "@/components/list-pagination";
 import { useWorkspaceMutation } from "@/lib/use-workspace-mutation";
 import { useWorkspace } from "@/components/workspace-provider";
 import { WorkspaceDialog } from "@/components/workspace-dialog";
@@ -30,6 +32,7 @@ export default function CategoriesPage() {
     const matchesFilter = filter === "All" || category.status === filter;
     return matchesQuery && matchesFilter;
   }), [categories, filter, query]);
+  const pagination = useListPage(visibleCategories);
 
   const addCategory = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -75,10 +78,10 @@ export default function CategoriesPage() {
           {notice && <div className={styles.notice} role="status"><Check aria-hidden="true" />{notice}<button type="button" onClick={() => setNotice("")} aria-label="Dismiss message"><X /></button></div>}
 
           <section className={styles.categoryPanel}>
-            <div className={styles.panelHeader}><div><h2>All categories <span>{categories.length}</span></h2></div><div className={styles.tools}><label className={styles.search}><Search aria-hidden="true" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search categories" aria-label="Search categories" /></label><div className={styles.filters} aria-label="Filter categories">{(["All", "Active", "Inactive"] as const).map((value) => <button type="button" key={value} aria-pressed={filter === value} className={filter === value ? styles.filterActive : ""} onClick={() => setFilter(value)}>{value}</button>)}</div></div></div>
+            <div className={styles.panelHeader}><div><h2>All categories <span>{categories.length}</span></h2></div><div className={styles.tools}><label className={styles.search}><Search aria-hidden="true" /><input value={query} onChange={(event) => { setQuery(event.target.value); pagination.setPage(1); }} placeholder="Search categories" aria-label="Search categories" /></label><div className={styles.filters} aria-label="Filter categories">{(["All", "Active", "Inactive"] as const).map((value) => <button type="button" key={value} aria-pressed={filter === value} className={filter === value ? styles.filterActive : ""} onClick={() => { setFilter(value); pagination.setPage(1); }}>{value}</button>)}</div></div></div>
             <div className={styles.tableHeader}><span>Category</span><span>Menu items</span><span>Status</span><span>Actions</span></div>
-            <div className={styles.categoryList}>{visibleCategories.length ? visibleCategories.map((category) => { const itemCount = foods.filter(({ categoryId }) => categoryId === category.id).length; return <article className={styles.categoryRow} key={category.id}><div className={styles.categoryName}><span className={`${styles.categoryIcon} ${styles[category.color]}`}><CookingPot /></span><div><strong>{category.name}</strong><small>Category #{String(category.id).slice(-4).padStart(4, "0")}</small></div></div><span className={styles.itemCount}>{itemCount} {itemCount === 1 ? "item" : "items"}</span><span className={`${styles.status} ${category.status === "Active" ? styles.statusActive : styles.statusInactive}`}><i />{category.status}</span><div className={styles.rowActions}><button type="button" className={styles.moreButton} aria-label={`Edit ${category.name}`} onClick={() => { setEditing(category); setNewName(category.name); setStatus(category.status); setAdding(true); setError(""); setNotice(""); mutation.clearError(); }}><PencilLine /></button><button type="button" className={styles.deleteButton} onClick={() => { mutation.clearError(); setDeleteTarget(category); }} aria-label={`Delete ${category.name}`}><Trash2 /></button></div></article>; }) : <div className={styles.emptyState}><Shapes /><strong>No categories found</strong><span>Try a different search or add a new category.</span></div>}</div>
-            <footer className={styles.panelFooter}>Showing {visibleCategories.length} of {categories.length} categories</footer>
+            <div className={styles.categoryList}>{visibleCategories.length ? pagination.items.map((category) => { const itemCount = foods.filter(({ categoryId }) => categoryId === category.id).length; return <article className={styles.categoryRow} key={category.id}><div className={styles.categoryName}><span className={`${styles.categoryIcon} ${styles[category.color]}`}><CookingPot /></span><div><strong>{category.name}</strong><small>Category #{String(category.id).slice(-4).padStart(4, "0")}</small></div></div><span className={styles.itemCount}>{itemCount} {itemCount === 1 ? "item" : "items"}</span><span className={`${styles.status} ${category.status === "Active" ? styles.statusActive : styles.statusInactive}`}><i />{category.status}</span><div className={styles.rowActions}><button type="button" className={styles.moreButton} aria-label={`Edit ${category.name}`} onClick={() => { setEditing(category); setNewName(category.name); setStatus(category.status); setAdding(true); setError(""); setNotice(""); mutation.clearError(); }}><PencilLine /></button><button type="button" className={styles.deleteButton} onClick={() => { mutation.clearError(); setDeleteTarget(category); }} aria-label={`Delete ${category.name}`}><Trash2 /></button></div></article>; }) : <div className={styles.emptyState}><Shapes /><strong>No categories found</strong><span>Try a different search or add a new category.</span></div>}</div>
+            <ListPagination pagination={pagination} label="categories" singular="category" />
           </section>
         </div>
       </main>

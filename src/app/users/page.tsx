@@ -2,6 +2,8 @@
 
 import { useCallback, useState, type FormEvent } from "react";
 import { Check, Copy, Menu, RefreshCw, PencilLine, Plus, Search, Trash2, UsersRound, X } from "lucide-react";
+import { useListPage } from "@/lib/use-list-page";
+import { ListPagination } from "@/components/list-pagination";
 import { useWorkspaceMutation } from "@/lib/use-workspace-mutation";
 import { useWorkspace } from "@/components/workspace-provider";
 import { WorkspaceDialog } from "@/components/workspace-dialog";
@@ -27,6 +29,7 @@ export default function UsersPage() {
     (filter === "All" || employee.active === (filter === "Active")) &&
     `${employee.name} ${employee.email} ${roles.find(({ id }) => id === employee.roleId)?.name}`.toLowerCase().includes(query.trim().toLowerCase()),
   );
+  const pagination = useListPage(visibleEmployees);
 
   function edit(employee?: Employee) {
     setError("");
@@ -95,15 +98,15 @@ export default function UsersPage() {
           <div className={common.panelHeader}>
             <div><h2>Team members <span>{employees.length}</span></h2></div>
             <div className={common.tools}>
-              <label className={common.search}><Search /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search employees" aria-label="Search employees" /></label>
+              <label className={common.search}><Search /><input value={query} onChange={(event) => { setQuery(event.target.value); pagination.setPage(1); }} placeholder="Search employees" aria-label="Search employees" /></label>
               <div className={common.filters} aria-label="Filter employees">
-                {(["All", "Active", "Inactive"] as const).map((value) => <button type="button" key={value} aria-pressed={value === filter} className={value === filter ? common.filterActive : ""} onClick={() => setFilter(value)}>{value}</button>)}
+                {(["All", "Active", "Inactive"] as const).map((value) => <button type="button" key={value} aria-pressed={value === filter} className={value === filter ? common.filterActive : ""} onClick={() => { setFilter(value); pagination.setPage(1); }}>{value}</button>)}
               </div>
             </div>
           </div>
           <div className={styles.tableHeader}><span>Employee</span><span>Role</span><span>Status</span><span>Actions</span></div>
           <div className={styles.userList}>
-            {visibleEmployees.map((employee) => {
+            {pagination.items.map((employee) => {
               const initials = employee.name.split(/\s+/).slice(0, 2).map((word) => word[0]).join("").toUpperCase();
               const roleName = roles.find((role) => role.id === employee.roleId)?.name;
               const pendingInvite = Boolean(employee.inviteCode);
@@ -124,6 +127,7 @@ export default function UsersPage() {
             })}
             {!visibleEmployees.length && <div className={common.emptyState}><UsersRound /><strong>No employees found</strong><span>Try a different name or status.</span></div>}
           </div>
+          <ListPagination pagination={pagination} label="employees" singular="employee" />
         </section>
       </div>
     </main>

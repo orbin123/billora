@@ -29,7 +29,6 @@
 .feedback[data-error] { background: #fff0f2; color: #8f203a; }
 
 .rolesHeader { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
-.roleList { margin-top: 12px; }
 .roleRow { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding-block: 10px; border-top: 1px solid #eaf0ec; }
 .roleRow:first-child { border-top: 0; }
 .roleName { min-width: 0; flex: 1; display: grid; gap: 3px; font-size: 14px; overflow-wrap: anywhere; }

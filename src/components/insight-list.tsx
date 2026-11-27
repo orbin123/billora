@@ -4,7 +4,30 @@ import { useId, useState, type ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
 import styles from "./insights.module.css";
 
-const previewSize = 5;
+export const listPreviewSize = 5;
+
+export function ListToggle({ id, label, remaining, expanded, onToggle }: {
+  id: string;
+  label: string;
+  remaining: number;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  if (remaining <= 0) return null;
+  const buttonText = expanded ? "Show less" : `Show ${remaining} more`;
+
+  return <button
+    className={styles.listToggle}
+    type="button"
+    aria-expanded={expanded}
+    aria-controls={id}
+    aria-label={`${buttonText} · ${label}`}
+    onClick={onToggle}
+  >
+    {buttonText}
+    <ChevronDown aria-hidden="true" />
+  </button>;
+}
 
 export function InsightList<Item>({ items, label, className, ordered, renderItem }: {
   items: Item[];
@@ -15,11 +38,9 @@ export function InsightList<Item>({ items, label, className, ordered, renderItem
 }) {
   const [expanded, setExpanded] = useState(false);
   const id = useId();
-  const remaining = items.length - previewSize;
-  const canExpand = remaining > 0;
-  const isExpanded = canExpand && expanded;
+  const remaining = items.length - listPreviewSize;
+  const isExpanded = remaining > 0 && expanded;
   const List = ordered ? "ol" : "ul";
-  const buttonText = isExpanded ? "Show less" : `Show ${remaining} more`;
 
   return (
     <div className={styles.listBlock}>
@@ -31,20 +52,10 @@ export function InsightList<Item>({ items, label, className, ordered, renderItem
         aria-label={isExpanded ? label : undefined}
       >
         <List className={className} aria-label={label}>
-          {(isExpanded ? items : items.slice(0, previewSize)).map(renderItem)}
+          {(isExpanded ? items : items.slice(0, listPreviewSize)).map(renderItem)}
         </List>
       </div>
-      {canExpand && <button
-        className={styles.listToggle}
-        type="button"
-        aria-expanded={isExpanded}
-        aria-controls={id}
-        aria-label={`${buttonText} · ${label}`}
-        onClick={() => setExpanded(!isExpanded)}
-      >
-        {buttonText}
-        <ChevronDown aria-hidden="true" />
-      </button>}
+      <ListToggle id={id} label={label} remaining={remaining} expanded={isExpanded} onToggle={() => setExpanded(!isExpanded)} />
     </div>
   );
 }
