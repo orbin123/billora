@@ -172,16 +172,17 @@ jobs:
             throw new Error("The staged deployment is not ready for promotion in the configured project.");
           }
 
-          const deploymentPath = `/v13/deployments/${deployment.id}`;
           await vercel(`/v10/projects/${encodeURIComponent(VERCEL_PROJECT_ID)}/promote/${deployment.id}`, "POST");
 
+          // A build staged with --skip-domain can keep an empty alias field after promotion.
+          const aliasesPath = `/v2/deployments/${deployment.id}/aliases`;
           const deadline = Date.now() + 60_000;
-          let promoted = await vercel(deploymentPath);
-          while (!promoted.aliasAssigned && !promoted.aliasError && Date.now() < deadline) {
+          let { aliases } = await vercel(aliasesPath);
+          while (!aliases.length && Date.now() < deadline) {
             await wait(2_000);
-            promoted = await vercel(deploymentPath);
+            ({ aliases } = await vercel(aliasesPath));
           }
-          if (!promoted.aliasAssigned || promoted.aliasError || !promoted.alias?.length) {
+          if (!aliases.length) {
             throw new Error("Vercel did not assign production domains to the staged deployment.");
           }
           console.log(`Production domains assigned to ${deployment.id}.`);
