@@ -143,4 +143,46 @@ jobs:
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           DEPLOYMENT_URL: ${{ steps.stage.outputs.url }}
-        run: vercel promote "$DEPLOYMENT_URL" --yes
+        run: |
+          node --input-type=module <<'JS'
+          import { setTimeout as wait } from "node:timers/promises";
+
+          const { DEPLOYMENT_URL, VERCEL_ORG_ID, VERCEL_PROJECT_ID, VERCEL_TOKEN } = process.env;
+          const scope = new URLSearchParams({ teamId: VERCEL_ORG_ID });
+
+          // The CLI promote command looks up the user, which a scoped CI token cannot do.
+          async function vercel(path, method = "GET") {
+            const response = await fetch(`https://api.vercel.com${path}?${scope}`, {
+              method,
+              headers: { Authorization: `Bearer ${VERCEL_TOKEN}` },
+              signal: AbortSignal.timeout(15_000),
+            });
+            if (!response.ok) {
+              throw new Error(`Vercel ${method} ${path} failed (HTTP ${response.status}).`);
+            }
+            if (method === "GET") return response.json();
+          }
+
+          const hostname = new URL(DEPLOYMENT_URL).hostname;
+          const deployment = await vercel(`/v13/deployments/${encodeURIComponent(hostname)}`);
+          if ((deployment.projectId ?? deployment.project?.id) !== VERCEL_PROJECT_ID ||
+              deployment.target !== "production" ||
+              (deployment.readyState ?? deployment.state) !== "READY" ||
+              !/^dpl_[a-zA-Z0-9]+$/.test(deployment.id)) {
+            throw new Error("The staged deployment is not ready for promotion in the configured project.");
+          }
+
+          const deploymentPath = `/v13/deployments/${deployment.id}`;
+          await vercel(`/v10/projects/${encodeURIComponent(VERCEL_PROJECT_ID)}/promote/${deployment.id}`, "POST");
+
+          const deadline = Date.now() + 60_000;
+          let promoted = await vercel(deploymentPath);
+          while (!promoted.aliasAssigned && !promoted.aliasError && Date.now() < deadline) {
+            await wait(2_000);
+            promoted = await vercel(deploymentPath);
+          }
+          if (!promoted.aliasAssigned || promoted.aliasError || !promoted.alias?.length) {
+            throw new Error("Vercel did not assign production domains to the staged deployment.");
+          }
+          console.log(`Production domains assigned to ${deployment.id}.`);
+          JS
