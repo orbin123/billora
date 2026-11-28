@@ -48,11 +48,10 @@ function ConnectedWorkspace({ path, children }: { path: string; children: ReactN
       setError("");
     } catch (failure) {
       if (signal?.aborted || current !== requestNumber.current) return;
-      if (failure instanceof RequestError && [401, 403, 409].includes(failure.status)) {
+      if (failure instanceof RequestError && [401, 403].includes(failure.status)) {
         setSnapshot(undefined);
         setUnavailable(failure.status === 403);
         if (failure.status === 401) router.replace("/signin");
-        if (failure.status === 409) router.replace("/setup");
       }
       setError(failure instanceof Error ? failure.message : "Couldn’t load the workspace.");
     }
@@ -80,7 +79,7 @@ function ConnectedWorkspace({ path, children }: { path: string; children: ReactN
       await refresh();
       return bill;
     } catch (failure) {
-      if (failure instanceof RequestError && [401, 403, 409].includes(failure.status)) await refresh();
+      if (failure instanceof RequestError && [401, 403].includes(failure.status)) await refresh();
       throw failure;
     }
   }, [refresh]);

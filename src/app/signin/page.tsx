@@ -1,8 +1,8 @@
 "use client";
 
-import { Suspense, type FormEvent, useState } from "react";
+import { type FormEvent, useState } from "react";
 import { Eye, EyeOff, LockKeyhole, UserRound } from "lucide-react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { BrandMark } from "@/components/brand-mark";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -10,34 +10,26 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { post } from "@/lib/workspace-client";
 
-function SignInForm() {
+export default function SignInPage() {
   const router = useRouter();
-  const params = useSearchParams();
-  const invite = params.get("invite");
-  const [creating, setCreating] = useState(Boolean(invite));
+  const [mode, setMode] = useState<"admin" | "employee">("admin");
   const [error, setError] = useState("");
-  const [status, setStatus] = useState("");
   const [pending, setPending] = useState(false);
-  const [email, setEmail] = useState("");
+  const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const admin = mode === "admin";
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (pending) return;
     setPending(true);
-    setStatus("");
     setError("");
     try {
-      const result = await post<{ signedIn: boolean; next?: string }>("/api/auth", {
-        kind: creating ? "signup" : "signin", email: email.trim(), password, invite: invite ?? undefined,
+      const result = await post<{ next: string }>("/api/auth", {
+        kind: "signin", mode, login: login.trim(), password,
       });
-      if (result.signedIn) router.replace(result.next ?? "/dashboard");
-      else {
-        setCreating(false);
-        setPassword("");
-        setStatus("Check your email for a confirmation link, then sign in.");
-      }
+      router.replace(result.next);
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : "Couldn’t sign in.");
     } finally {
@@ -70,21 +62,39 @@ function SignInForm() {
             <header className="mb-8 flex flex-col items-center text-center">
               <BrandMark />
               <h2 className="mt-4 text-2xl font-extrabold tracking-[0.08em] text-zinc-950">BILLORA</h2>
-              <p className="mt-1.5 text-sm text-zinc-500">{creating ? (invite ? "Create your employee login" : "Create an owner account") : "Sign in to your workspace"}</p>
+              <p className="mt-1.5 text-sm text-zinc-500">Sign in to your workspace</p>
             </header>
 
             <form className="space-y-5" onSubmit={handleSubmit}>
+              <fieldset disabled={pending} className="grid grid-cols-2 gap-1 rounded-xl bg-[#F6F8F6] p-1">
+                <legend className="sr-only">Sign in as</legend>
+                {(["admin", "employee"] as const).map((option) => (
+                  <label key={option} className="cursor-pointer">
+                    <input type="radio" name="mode" value={option} checked={mode === option} className="peer sr-only"
+                      onChange={() => {
+                        setMode(option);
+                        setLogin("");
+                        setPassword("");
+                        setShowPassword(false);
+                        setError("");
+                      }} />
+                    <span className="flex min-h-11 items-center justify-center rounded-lg text-sm font-semibold text-[#18211D] peer-checked:bg-[#DDF3E7] peer-checked:text-[#045B39] peer-focus-visible:ring-2 peer-focus-visible:ring-[#087747]">
+                      {option === "admin" ? "Admin" : "Employee"}
+                    </span>
+                  </label>
+                ))}
+              </fieldset>
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="login">{admin ? "Admin email" : "Employee username"}</Label>
                 <div className="relative">
                   <UserRound className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-zinc-400" />
                   <Input
-                    id="email"
+                    id="login"
                     autoComplete="username"
-                    type="email"
-                    placeholder="Enter your email"
-                    value={email}
-                    onChange={(event) => { setEmail(event.target.value); setError(""); }}
+                    type={admin ? "email" : "text"}
+                    maxLength={254}
+                    value={login}
+                    onChange={(event) => { setLogin(event.target.value); setError(""); }}
                     autoCapitalize="none"
                     spellCheck={false}
                     className="pl-10"
@@ -100,8 +110,7 @@ function SignInForm() {
                   <Input
                     id="password"
                     type={showPassword ? "text" : "password"}
-                    autoComplete={creating ? "new-password" : "current-password"}
-                    minLength={creating ? 8 : undefined}
+                    autoComplete="current-password"
                     maxLength={128}
                     placeholder="Enter your password"
                     value={password}
@@ -121,25 +130,13 @@ function SignInForm() {
               </div>
 
               {error && <p role="alert" className="text-sm text-rose-800">{error}</p>}
-              {(status || params.has("confirmed")) && <p role="status" className="text-sm text-emerald-900">
-                {status || "Sign in after confirming your email."}
-              </p>}
               <Button type="submit" disabled={pending} className="h-12 w-full text-sm tracking-wide">
-                {pending ? "Please wait…" : creating ? "Create account" : "Sign in"}
+                {pending ? "Signing in…" : admin ? "Sign in as admin" : "Sign in as employee"}
               </Button>
             </form>
-
-            <button type="button" className="mt-5 min-h-11 w-full text-sm font-semibold text-emerald-800 underline"
-              onClick={() => { setCreating(!creating); setError(""); setStatus(""); }}>
-              {creating ? "Already have an account? Sign in" : invite ? "Create your employee login" : "Create an owner account"}
-            </button>
           </CardContent>
         </Card>
       </section>
     </main>
   );
-}
-
-export default function SignInPage() {
-  return <Suspense fallback={<p className="p-6">Loading sign-in…</p>}><SignInForm /></Suspense>;
 }

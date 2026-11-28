@@ -16,9 +16,9 @@ export type WorkspaceAction =
   | { kind: "remove-category"; id: number }
   | { kind: "save-food"; food: Food }
   | { kind: "remove-food"; id: number }
-  | { kind: "save-employee"; employee: Omit<Employee, "inviteCode" | "inviteExpiresAt"> }
+  | { kind: "save-employee"; employee: Pick<Employee, "id" | "name" | "roleId" | "active"> }
   | { kind: "remove-employee"; id: string }
-  | { kind: "renew-invite"; id: string }
+  | { kind: "provision-employee"; employee: Pick<Employee, "name" | "roleId" | "active"> & { id?: string; username?: string }; password: string }
   | { kind: "save-role"; role: Role }
   | { kind: "remove-role"; id: string }
   | { kind: "checkout"; checkout: Checkout }

@@ -1,5 +1,6 @@
 "use client";
 
+import { employeeLogin } from "@/lib/employee-login";
 import { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import {
@@ -120,7 +121,7 @@ export function WorkspaceProfile({ styles }: { styles: Styles }) {
 
       {open && <section className={profileStyles.picker} id={panelId} aria-label="Account options">
         <div className={profileStyles.pickerHeader}>
-          <h2>Account</h2><span>{account.email}</span>
+          <h2>Account</h2><span>{employeeLogin(account.email)}</span>
         </div>
         <SignOutButton buttonRef={exitLink} className={profileStyles.signOut} />
       </section>}
