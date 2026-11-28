@@ -2,10 +2,11 @@ import type { PostgrestError } from "@supabase/supabase-js";
 import type { BusinessProfile } from "@/data/business-profile";
 import type { Bill, Category, Employee, Food, Role } from "@/data/workspace";
 import { ApiError } from "./api-response";
-import { supabaseServer, type DatabaseClient } from "./supabase/server";
+import { supabaseAuthAdmin, supabaseServer, type DatabaseClient } from "./supabase/server";
 import type { DashboardSummary, WorkspaceAction, WorkspaceSnapshot } from "./workspace-commands";
 import { can, productPermissions } from "./workspace-access";
 import { summarizeBills } from "./bill-dates";
+import { employeeAuthEmail } from "./employee-login";
 import { holdDraft } from "./workspace-validation";
 
 export function checkDatabase(error: PostgrestError | null, conflict?: string) {
@@ -18,8 +19,7 @@ export function checkDatabase(error: PostgrestError | null, conflict?: string) {
   throw error;
 }
 
-export async function requireSession() {
-  const client = await supabaseServer();
+export async function requireSession(client: DatabaseClient) {
   const { data, error } = await client.auth.getClaims();
   if (error && (error.name === "AuthRetryableFetchError" || (error.status ?? 0) >= 500)) throw error;
   if (!data?.claims.sub) throw new ApiError(401, "Sign in to open your workspace.");
@@ -28,9 +28,9 @@ export async function requireSession() {
 
 type MemberRow = {
   id: string; name: string; email: string; role_id: string; active: boolean;
-  workspace_id: string; invite_code: string | null; invite_expires_at: string | null;
+  workspace_id: string; auth_user_id: string | null;
 };
-const memberColumns = "id,name,email,role_id,active,workspace_id,invite_code,invite_expires_at";
+const memberColumns = "id,name,email,role_id,active,workspace_id,auth_user_id";
 type WorkspaceRow = {
   name: string; address_lines: string[]; gstin: string; phone: string; fssai_license: string;
   currency: BusinessProfile["currency"]; time_zone: BusinessProfile["timeZone"]; gst_component_bps: number; paper: 58 | 80;
@@ -50,7 +50,7 @@ const billColumns = "number,created_at,business_day,cashier_id,cashier,customer_
 function employee(member: MemberRow): Employee {
   return {
     id: member.id, name: member.name, email: member.email, roleId: member.role_id, active: member.active,
-    inviteCode: member.invite_code ?? undefined, inviteExpiresAt: member.invite_expires_at ?? undefined,
+    loginPending: !member.auth_user_id,
   };
 }
 
@@ -75,18 +75,18 @@ function bill(row: BillRow): Bill {
   };
 }
 
-export async function requireWorkspace() {
-  const { client, userId } = await requireSession();
-  const membership = await client.from("billora_members")
+export async function requireWorkspace(client?: DatabaseClient) {
+  const { userId, client: sessionClient } = await requireSession(client ?? await supabaseServer());
+  const membership = await sessionClient.from("billora_members")
     .select(`${memberColumns},role:billora_roles(id,name,permissions)`)
     .eq("auth_user_id", userId).maybeSingle<MemberRow & { role: Role | null }>();
   checkDatabase(membership.error);
-  if (!membership.data) throw new ApiError(409, "Set up or join a workspace to continue.");
+  if (!membership.data) throw new ApiError(403, "Your account has no workspace access. Contact your admin.");
   if (!membership.data.active) throw new ApiError(403, "Your account is inactive. Contact your workspace owner.");
 
   const { role, ...member } = membership.data;
   if (!role) throw new ApiError(403, "Your workspace access changed. Sign in again.");
-  return { client, member, role };
+  return { client: sessionClient, member, role };
 }
 
 type QueryPage<Row> = PromiseLike<{ data: Row[] | null; error: PostgrestError | null }>;
@@ -177,8 +177,50 @@ async function expectRow(query: PromiseLike<{ data: { id: unknown } | null; erro
   if (!result.data) throw new ApiError(409, "This record changed or is unavailable. Reload the workspace and try again.");
 }
 
+async function provisionEmployee(
+  { client, member, role }: Awaited<ReturnType<typeof requireWorkspace>>,
+  { employee: { id, name, username, roleId, active }, password }: Extract<WorkspaceAction, { kind: "provision-employee" }>,
+) {
+  if (role.id !== "manager") throw new ApiError(403, "Only the workspace owner can create employee logins.");
+  const admin = supabaseAuthAdmin();
+  if (!admin) throw new ApiError(503, "Employee login setup is unavailable. Contact the person who manages Billora.");
+
+  let email = username ? employeeAuthEmail(username) : "";
+  if (id) {
+    const pending = await client.from("billora_members").select("email")
+      .eq("workspace_id", member.workspace_id).eq("id", id).is("auth_user_id", null).maybeSingle<{ email: string }>();
+    checkDatabase(pending.error);
+    if (!pending.data) throw new ApiError(409, "This employee already has a login or is unavailable.");
+    email = pending.data.email;
+  }
+  const { error: checkError } = await client.rpc("billora_check_employee_login", {
+    p_member: id || null, p_email: email, p_role: roleId,
+  });
+  if (checkError?.code === "PGRST202") throw new ApiError(503, "Apply the employee login migration before setting passwords.");
+  checkDatabase(checkError);
+
+  const { error } = await admin.createUser({
+    email, password, email_confirm: true,
+    app_metadata: {
+      billora_employee: {
+        workspace_id: member.workspace_id, owner_id: member.id, member_id: id || null,
+        name, role_id: roleId, active,
+      },
+    },
+  });
+  if (!error) return {};
+  if (error.code === "email_exists" || error.code === "user_already_exists") {
+    throw new ApiError(409, "This login is already in use. Choose a different username.");
+  }
+  if (error.code === "weak_password") throw new ApiError(400, "Choose a stronger password and try again.");
+  if (error.status === 429) throw new ApiError(429, "Account creation is temporarily limited. Try again later.");
+  console.warn("Billora employee login creation failed", { code: error.code, status: error.status });
+  throw new ApiError(503, "Billora couldn’t create this login. Refresh Employees and check the account status before retrying.");
+}
+
 export async function mutateWorkspace(action: WorkspaceAction) {
-  const { client, member, role } = await requireWorkspace();
+  const context = await requireWorkspace();
+  const { client, member, role } = context;
   const workspace = member.workspace_id;
   switch (action.kind) {
     case "save-category": {
@@ -211,20 +253,15 @@ export async function mutateWorkspace(action: WorkspaceAction) {
       await expectRow(client.from("billora_foods").delete().eq("workspace_id", workspace).eq("id", action.id).select("id").maybeSingle());
       return {};
     case "save-employee": {
-      const { id, name, email, roleId, active } = action.employee;
-      const values = { name, role_id: roleId, active };
-      await expectRow((id
-        ? client.from("billora_members").update(values).eq("workspace_id", workspace).eq("id", id)
-        : client.from("billora_members").insert({ ...values, workspace_id: workspace, email })).select("id").maybeSingle(),
-      "This email is already in use or the assigned role is unavailable.");
+      const { id, name, roleId, active } = action.employee;
+      await expectRow(client.from("billora_members").update({ name, role_id: roleId, active })
+        .eq("workspace_id", workspace).eq("id", id).select("id").maybeSingle());
       return {};
     }
-    case "remove-employee":
+    case "provision-employee":
+      return provisionEmployee(context, action);
+    case "remove-employee": {
       await expectRow(client.from("billora_members").delete().eq("workspace_id", workspace).eq("id", action.id).select("id").maybeSingle());
-      return {};
-    case "renew-invite": {
-      const { error } = await client.rpc("billora_renew_invite", { p_member: action.id });
-      checkDatabase(error);
       return {};
     }
     case "save-role": {

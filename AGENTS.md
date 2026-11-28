@@ -39,10 +39,10 @@ Respect role boundaries in both the interface and data access. Do not show an ac
 
 ## Current phase: connected workspaces
 
-Billora uses Supabase Auth and Postgres. Owners register a business workspace and invite employees to join it with individual email/password accounts.
+Billora uses Supabase Auth and Postgres. A designated admin signs in by email and creates individual username and password logins for employees.
 
 - Enforce workspace scope and role permissions in Postgres policies and server-side operations. Derive the current workspace from the verified account membership.
-- Keep the owner's account and authorization separate from employee roles. Employee invitations are single-use, expire, and require the invited email.
+- Keep admin enrollment limited to the single trusted Supabase Auth account and keep public signup disabled. Provision employee logins only through the authenticated admin workflow.
 - Use the business profile for checkout, receipts, and reporting. Preserve historical receipt and pricing information when business settings or products change.
 - Use local React state for draft UI and interaction feedback. Persist shared records and held bills through the authenticated workspace API.
 

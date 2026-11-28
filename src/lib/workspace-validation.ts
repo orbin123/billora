@@ -3,7 +3,7 @@ import { currencies, timeZones } from "@/data/business-profile";
 import { allPermissions, paymentMethods } from "@/data/workspace-rules";
 import { ApiError } from "./api-response";
 
-export const inviteCode = z.uuid();
+import { employeeUsernameHint, employeeUsernamePattern } from "./employee-login";
 export const billRange = z.object({ start: z.iso.date(), end: z.iso.date() }).refine(({ start, end }) => start <= end);
 const name = (length: number) => z.string().trim().min(1).max(length);
 const text = (length: number) => z.string().trim().max(length);
@@ -24,11 +24,12 @@ export const holdDraft = z.object({
 });
 
 const email = z.email().max(254).transform((value) => value.toLowerCase());
+const username = z.string().trim().regex(employeeUsernamePattern, employeeUsernameHint).toLowerCase();
+const employeeRole = z.union([z.literal("employee"), z.uuid()]);
+const signInPassword = z.string().min(1).max(128);
 export const authRequest = z.union([
-  z.object({ kind: z.literal("signin"), email, password: z.string().min(1).max(128), invite: inviteCode.optional() }),
-  z.object({ kind: z.literal("signup"), email, password: z.string().min(8).max(128), invite: inviteCode.optional() }),
-  z.object({ kind: z.literal("setup"), invite: inviteCode }),
-  z.object({ kind: z.literal("setup"), name: name(60), business: name(80) }),
+  z.object({ kind: z.literal("signin"), mode: z.literal("admin"), login: email, password: signInPassword }),
+  z.object({ kind: z.literal("signin"), mode: z.literal("employee"), login: z.union([username, email]), password: signInPassword }),
   z.object({ kind: z.literal("signout") }),
 ]);
 export const workspaceAction = z.discriminatedUnion("kind", [
@@ -41,10 +42,12 @@ export const workspaceAction = z.discriminatedUnion("kind", [
   }) }),
   z.object({ kind: z.literal("remove-food"), id }),
   z.object({ kind: z.literal("save-employee"), employee: z.object({
-    id: z.union([z.literal(""), z.uuid()]), name: name(60), email, roleId: z.union([z.literal("employee"), z.uuid()]), active: z.boolean(),
+    id: z.uuid(), name: name(60), roleId: employeeRole, active: z.boolean(),
   }) }),
+  z.object({ kind: z.literal("provision-employee"), employee: z.object({
+    id: z.uuid().optional(), username: username.optional(), name: name(60), roleId: employeeRole, active: z.boolean(),
+  }).refine(({ id, username }) => Boolean(id) !== Boolean(username)), password: z.string().min(8).max(72) }),
   z.object({ kind: z.literal("remove-employee"), id: z.uuid() }),
-  z.object({ kind: z.literal("renew-invite"), id: z.uuid() }),
   z.object({ kind: z.literal("save-role"), role: z.object({
     id: z.union([z.literal(""), z.literal("employee"), z.uuid()]), name: name(60),
     permissions: z.array(z.enum(allPermissions)).max(allPermissions.length).transform((values) => [...new Set(values)]),

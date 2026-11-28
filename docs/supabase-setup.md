@@ -4,7 +4,7 @@ The SQL migrations in `supabase/migrations` are applied to the connected [Billor
 
 ## Run Billora
 
-Copy `.env.example` to `.env.local` and set `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` to the project's publishable key. Run `npm ci` and `npm run dev`. The app uses the signed-in account's session and the project's public API. A Supabase service-role key is unnecessary.
+For local development, start your local Supabase stack, copy `.env.example` to `.env.local`, and use the local API URL, publishable key, and server-only secret key from `supabase status`. Run `npm ci` and `npm run dev`. Create a confirmed admin with the Supabase Auth Admin API and set their app metadata to `{ "billora_admin": true }`. Use separate test credentials for each non-production project.
 
 ## GitHub checks and releases
 
@@ -25,13 +25,13 @@ Enter the credentials directly in the [GitHub production environment](https://gi
 
 Connect the Vercel project to `orbin123/billora` for Preview deployments. The repository configuration disables Vercel's Git-triggered deploy for `main` so the release job controls production promotion. Configure **Preview** separately with a test Supabase project if previews need working sign-in and database access. [Vercel Git configuration](https://vercel.com/docs/project-configuration/git-configuration)
 
-## Enable customer registration at launch
+## Set up private sign-in
 
-1. Add `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` to the Vercel project's environment variables. Redeploy after changing them.
-2. In Supabase Authentication URL Configuration, set **Site URL** to the production website and add its exact `/auth/callback` URL to **Redirect URLs**. For local testing, add `http://localhost:3000/auth/callback` or the exact local URL you use. [Supabase redirect settings](https://supabase.com/docs/guides/auth/redirect-urls)
-3. Keep email sign-up and **Confirm email** enabled. Configure a custom SMTP provider in Supabase Auth to send confirmations to customers and employees outside the project team. [Supabase SMTP setup](https://supabase.com/docs/guides/auth/auth-smtp)
+Disable **Allow new users to sign up** in Supabase Authentication for each hosted environment. Set `SUPABASE_SECRET_KEY` as a server-only Vercel variable for that environment. The secret key lets Billora create individual Auth accounts when the admin adds employees. Keep **Confirm email** enabled. Admin-provisioned identities are confirmed when created. [Supabase Auth configuration](https://supabase.com/docs/guides/auth/general-configuration)
 
-An owner selects **Create an owner account**, verifies their email, and names their business. In **Settings → Roles & permissions**, they can edit Employee permissions or add a custom role. In **Employees**, they can add an employee, assign a role, and copy the invitation link to share with that person. The employee signs in or registers with the invited email, verifies it, and accepts the invitation. Links expire after seven days and can be renewed by the owner.
+For the first production release, set `BILLORA_BOOTSTRAP_ADMIN_EMAIL` as a GitHub `production` environment variable and `BILLORA_BOOTSTRAP_ADMIN_PASSWORD` as a secret. The protected release configures private sign-in, sets the Vercel server key, and creates the designated Supabase admin. This one-time step needs Supabase Auth configuration and API key permissions, plus Vercel project environment write access. Remove the bootstrap password secret after successful provisioning. You can also set up the same configuration directly in Supabase and Vercel before release.
+
+The admin selects **Admin** on the sign-in screen and uses their email and password. On first sign-in, Billora creates their workspace. Under **Employees → Add employee**, the admin creates a username and initial password and assigns a role. The employee selects **Employee** and uses those credentials. Employees with an existing email login can keep using it.
 
 New workspaces start with an empty catalog and a 0% GST rate. Owners can set receipt details, currency, time zone, rates, and paper width in Settings.
 
@@ -39,4 +39,4 @@ Each account belongs to one workspace at a time. Workspace members share the cat
 
 ## Verify database permissions
 
-Run `supabase/tests/workspace_isolation.sql` in the Supabase SQL Editor as Postgres, with all migrations applied. The script uses test identities and rolls back its data. It covers tenant isolation, employee invitations and deactivation, stock changes and retry safety at checkout, and report access.
+Run `supabase/tests/workspace_isolation.sql` in the Supabase SQL Editor as Postgres, with all migrations applied. The script uses test identities and rolls back its data. It covers tenant isolation, single-admin enrollment, employee provisioning and deactivation, stock changes and retry safety at checkout, and report access.

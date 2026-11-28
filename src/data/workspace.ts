@@ -10,8 +10,7 @@ export type Employee = {
   email: string;
   roleId: string;
   active: boolean;
-  inviteCode?: string;
-  inviteExpiresAt?: string;
+  loginPending?: boolean;
 };
 export type Category = { id: number; name: string; status: "Active" | "Inactive"; color: string };
 export type Food = {
