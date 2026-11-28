@@ -1,6 +1,6 @@
 begin;
 
-create function billora_private.check_employee_login(
+create or replace function billora_private.check_employee_login(
   p_workspace uuid, p_owner uuid, p_member uuid, p_email text, p_role text
 ) returns void
 language plpgsql set search_path = ''
@@ -32,7 +32,7 @@ begin
 end;
 $$;
 
-create function public.billora_check_employee_login(p_member uuid, p_email text, p_role text) returns void
+create or replace function public.billora_check_employee_login(p_member uuid, p_email text, p_role text) returns void
 language sql set search_path = ''
 as $$
   select billora_private.check_employee_login(
@@ -46,7 +46,7 @@ grant execute on function billora_private.check_employee_login(uuid, uuid, uuid,
   public.billora_check_employee_login(uuid, text, text) to authenticated;
 
 -- Auth Admin can attach app metadata after inserting the user in the same transaction.
-create function billora_private.attach_password_employee() returns trigger
+create or replace function billora_private.attach_password_employee() returns trigger
 language plpgsql security definer set search_path = ''
 as $$
 declare
@@ -90,6 +90,7 @@ end;
 $$;
 
 revoke execute on function billora_private.attach_password_employee() from public, anon, authenticated;
+drop trigger if exists billora_attach_password_employee on auth.users;
 create trigger billora_attach_password_employee after insert or update of raw_app_meta_data on auth.users
 for each row execute function billora_private.attach_password_employee();
 
